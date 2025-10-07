@@ -32,7 +32,6 @@ import {
 } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { emailCommsAPI } from '@/services/emailService';
-import { exportToCSV } from '@/utils/exportUtils';
 import {
   Dialog,
   DialogContent,
@@ -356,7 +355,7 @@ export default function BookingsConfirmed() {
     setSelectedRows(newSelection);
   };
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     const dataToExport = selectedRows.size > 0 
       ? filteredBookings.filter(b => selectedRows.has(b.id))
       : filteredBookings;
@@ -380,6 +379,8 @@ export default function BookingsConfirmed() {
       'Add-ons': booking.addOns,
     }));
 
+    // Dynamically import CSV export function
+    const { exportToCSV } = await import('@/utils/exportUtils');
     exportToCSV(
       rows,
       'confirmed_bookings_export',

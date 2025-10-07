@@ -52,7 +52,6 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, Area, AreaChart } from 'recharts';
 import { format, subDays, addDays, addMonths } from 'date-fns';
 import { reportsService } from '@/services/reportsService';
-import { exportToPDF, exportAllReportsAsCSV } from '@/utils/exportUtils';
 
 // --- Data State Management ---
 
@@ -665,6 +664,8 @@ export default function Reports() {
         return;
       }
       
+      // Dynamically import PDF export functions
+      const { exportToPDF } = await import('@/utils/exportUtils');
       await exportToPDF(reportsData, 'business_reports');
     } catch (error) {
       console.error('Error exporting PDF:', error);
@@ -679,13 +680,15 @@ export default function Reports() {
     }
   };
   
-  const exportCSVs = () => {
+  const exportCSVs = async () => {
     try {
       if (!reportsData.executiveKPIs) {
         alert('No data available to export. Please refresh the reports first.');
         return;
       }
       
+      // Dynamically import CSV export function
+      const { exportAllReportsAsCSV } = await import('@/utils/exportUtils');
       exportAllReportsAsCSV(reportsData);
     } catch (error) {
       console.error('Error exporting CSVs:', error);

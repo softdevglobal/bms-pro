@@ -70,7 +70,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices, fetchPayments, createInvoice, updateInvoiceStatus, recordPayment, calculateInvoiceSummary, generateInvoiceFromBooking, downloadInvoicePDF, sendInvoiceReminders } from '@/services/invoiceService';
 import { fetchBookingsForCalendar } from '@/services/bookingService';
-import { exportToCSV } from '@/utils/exportUtils';
 
 
 // Smart filter chips component with beautiful animations
@@ -1104,7 +1103,7 @@ export default function Invoices() {
   }, [selectedInvoice, newPaymentData, token, user]);
 
   // Handle CSV export
-  const handleExportCSV = useCallback(() => {
+  const handleExportCSV = useCallback(async () => {
     try {
       if (filteredInvoices.length === 0) {
         alert('No invoices to export. Please adjust your filters or create some invoices first.');
@@ -1145,6 +1144,9 @@ export default function Invoices() {
         'Final Total', 'Booking Source', 'Quotation ID', 'Priority', 'Created At', 'Sent At'
       ];
 
+      // Dynamically import CSV export function
+      const { exportToCSV } = await import('@/utils/exportUtils');
+      
       // Export to CSV
       exportToCSV(csvData, 'invoices_export', headers);
       

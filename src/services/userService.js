@@ -1,5 +1,7 @@
 // User service for handling user-related operations
 import { useAuth } from '@/contexts/AuthContext';
+import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { auth } from '../../firebase';
 
 export const getUserContext = () => {
   // This will be used by other services to get the current user context
@@ -60,10 +62,6 @@ export const getUserDisplayName = (user) => {
 // Change user password using Firebase Client SDK
 export const changePassword = async (currentPassword, newPassword) => {
   try {
-    // Import Firebase Auth functions
-    const { signInWithEmailAndPassword, updatePassword } = await import('firebase/auth');
-    const { auth } = await import('../../firebase');
-    
     // Get current user
     const user = auth.currentUser;
     if (!user) {
