@@ -17,6 +17,7 @@ import {
   Banknote,
   XCircle,
   Receipt,
+  RotateCcw,
   ArrowUpDown,
   Calendar,
   Filter,
@@ -166,6 +167,7 @@ const InvoiceActions = ({ invoice, onAction }) => {
   const canVoid = invoice.status === 'DRAFT' || (invoice.status === 'SENT' && invoice.paidAmount === 0);
   const canRefund = invoice.status === 'PAID' || invoice.status === 'PARTIAL';
   const canSend = ['DRAFT', 'SENT', 'OVERDUE'].includes(invoice.status);
+  const canMarkPaid = invoice.status !== 'PAID';
 
   return (
     <DropdownMenu>
@@ -215,6 +217,16 @@ const InvoiceActions = ({ invoice, onAction }) => {
           Download Receipt
         </DropdownMenuItem>
         
+        {canMarkPaid && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onAction('mark-paid', invoice.id)} className="text-green-600">
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Mark as PAID
+            </DropdownMenuItem>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         
         {canVoid && (
@@ -247,7 +259,9 @@ const InvoicesTable = ({
   sortConfig, 
   onSort,
   onRowClick,
-  onAction 
+  onAction,
+  onSendReminders,
+  onExportCSV 
 }) => {
   const getSortIcon = (column) => {
     if (sortConfig.key !== column) {
@@ -295,7 +309,7 @@ const InvoicesTable = ({
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={handleSendReminders}
+                onClick={onSendReminders}
               >
                 <Mail className="mr-2 h-4 w-4" />
                 Send Reminders
@@ -303,8 +317,8 @@ const InvoicesTable = ({
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={handleExportCSV}
-                disabled={filteredInvoices.length === 0}
+                onClick={onExportCSV}
+                disabled={invoices.length === 0}
               >
                 <Download className="mr-2 h-4 w-4" />
                 Export CSV
@@ -874,6 +888,11 @@ export default function Invoices() {
     notes: ''
   });
 
+  // Derived UI state
+  const isPaidOnlyActive = useMemo(() => (
+    activeStatuses.length === 1 && activeStatuses.includes('PAID')
+  ), [activeStatuses]);
+
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -1164,6 +1183,9 @@ export default function Invoices() {
         case 'send':
           await updateInvoiceStatus(invoiceId, 'SENT', token);
           break;
+        case 'mark-paid':
+          await updateInvoiceStatus(invoiceId, 'PAID', token);
+          break;
         case 'download-pdf':
           await downloadInvoicePDF(invoiceId, token);
           return; // Don't refresh data for download
@@ -1433,7 +1455,7 @@ export default function Invoices() {
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                     <Calendar className="h-4 w-4 text-gray-500" />
                     <Select>
                       <SelectTrigger className="w-[140px] bg-white/50">
@@ -1462,17 +1484,24 @@ export default function Invoices() {
                     </SelectContent>
                   </Select>
                   
-                  <Button variant="outline" className="bg-white/50">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" className="bg-white/50">
                     <Filter className="mr-2 h-4 w-4" />
                     More Filters
-                  </Button>
+                    </Button>
+                    <Button 
+                      variant={isPaidOnlyActive ? 'default' : 'outline'}
+                      className="bg-white/50"
+                      size="sm"
+                      aria-pressed={isPaidOnlyActive}
+                      onClick={() => setActiveStatuses(prev => (isPaidOnlyActive ? [] : ['PAID']))}
+                    >
+                      {isPaidOnlyActive && <CheckCircle className="mr-2 h-4 w-4 text-green-600" />}
+                      Paid Only
+                    </Button>
+                  </div>
                 </div>
                 
-                <FilterChips 
-                  activeStatuses={activeStatuses} 
-                  onStatusToggle={handleStatusToggle}
-                  type={activeTab}
-                />
               </CardContent>
             </Card>
           </motion.div>
@@ -1498,6 +1527,8 @@ export default function Invoices() {
                       onSort={handleSort}
                       onRowClick={handleRowClick}
                       onAction={handleInvoiceAction}
+                      onSendReminders={handleSendReminders}
+                      onExportCSV={handleExportCSV}
                     />
                   </CardContent>
                 </Card>

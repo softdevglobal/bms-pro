@@ -245,6 +245,15 @@ function PagesContent() {
                     </Layout>
                 </ProtectedRoute>
             } />
+
+            {/* Lowercase alias for case-insensitive access */}
+            <Route path="/invoices" element={
+                <ProtectedRoute requiredPermission={true}>
+                    <Layout currentPageName={currentPage}>
+                        <Invoices />
+                    </Layout>
+                </ProtectedRoute>
+            } />
             
             <Route path="/Quotations" element={
                 <ProtectedRoute requiredPermission={true}>
