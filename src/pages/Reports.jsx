@@ -408,9 +408,18 @@ const ForecastChart = ({ scenario, onScenarioChange }) => {
   );
 };
 
-const UtilisationHeatmap = ({ resource = 'Hall A' }) => {
-  const data = generateUtilisationData().find(r => r.name === resource);
-  const [selectedResource, setSelectedResource] = useState(resource);
+const UtilisationHeatmap = ({ resourcesData = [], loading = false }) => {
+  const [selectedResource, setSelectedResource] = useState(resourcesData[0]?.name || '');
+
+  useEffect(() => {
+    if (resourcesData?.length && !selectedResource) {
+      setSelectedResource(resourcesData[0].name);
+    }
+  }, [resourcesData]);
+
+  const data = useMemo(() => {
+    return resourcesData.find(r => r.name === selectedResource);
+  }, [resourcesData, selectedResource]);
   
   const getUtilisationColor = (rate) => {
     if (rate >= 80) return 'bg-green-500';
@@ -419,6 +428,21 @@ const UtilisationHeatmap = ({ resource = 'Hall A' }) => {
     return 'bg-red-500';
   };
   
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+        <div className="h-40 bg-gray-100 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!resourcesData || resourcesData.length === 0) {
+    return (
+      <div className="text-sm text-gray-500">No resource utilisation data available.</div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -427,7 +451,7 @@ const UtilisationHeatmap = ({ resource = 'Hall A' }) => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {generateUtilisationData().map(r => (
+            {resourcesData.map(r => (
               <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
             ))}
           </SelectContent>
@@ -1190,7 +1214,10 @@ export default function Reports() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <UtilisationHeatmap />
+            <UtilisationHeatmap 
+              resourcesData={reportsData.resourceUtilisation?.utilisationData || []}
+              loading={loading}
+            />
           </CardContent>
         </Card>
 
