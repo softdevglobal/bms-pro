@@ -570,6 +570,35 @@ export default function CustomersPage() {
                                      <Button 
                                        variant="outline" 
                                        className="w-full bg-white/60 border-purple-200 hover:bg-purple-50 hover:border-purple-300 text-gray-700 text-xs sm:text-sm"
+                                       onClick={() => {
+                                         try {
+                                           const exportRows = activeCustomer.bookings.map((b, idx) => ({
+                                             Index: idx + 1,
+                                             Event: b.eventType,
+                                             Date: new Date(b.date).toLocaleDateString('en-AU'),
+                                             Start: b.startTime,
+                                             End: b.endTime,
+                                             Resource: b.resource,
+                                             Status: b.status,
+                                             SpendAUD: b.spend.toFixed(2)
+                                           }));
+                                           const metaRow = [{
+                                             Name: activeCustomer.name,
+                                             Email: activeCustomer.email,
+                                             Phone: activeCustomer.phone || '',
+                                             TotalBookings: activeCustomer.totalBookings,
+                                             LifetimeSpendAUD: activeCustomer.lifetimeSpend.toFixed(2)
+                                           }];
+                                           import('../utils/exportUtils').then(({ exportToCSV }) => {
+                                             exportToCSV(metaRow, `customer_${activeCustomer.id}_profile`, ['Name','Email','Phone','TotalBookings','LifetimeSpendAUD']);
+                                             if (exportRows.length > 0) {
+                                               exportToCSV(exportRows, `customer_${activeCustomer.id}_bookings`);
+                                             }
+                                           });
+                                         } catch (e) {
+                                           console.error('Customer export failed', e);
+                                         }
+                                       }}
                                      >
                                        <ShieldCheck className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                        <span className="hidden sm:inline">Access Data (Export)</span>
@@ -578,6 +607,14 @@ export default function CustomersPage() {
                                      <Button 
                                        variant="outline" 
                                        className="w-full bg-white/60 border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-gray-700 text-xs sm:text-sm"
+                                       onClick={() => {
+                                         try {
+                                           const mailto = `mailto:${encodeURIComponent(activeCustomer.email)}?subject=${encodeURIComponent('Profile correction request')}&body=${encodeURIComponent('Hi ' + activeCustomer.name + ',%0D%0A%0D%0APlease reply with any corrections to your profile (name, email, phone).%0D%0A%0D%0AThanks!')}`;
+                                           window.location.href = mailto;
+                                         } catch (e) {
+                                           console.error('Open mail client failed', e);
+                                         }
+                                       }}
                                      >
                                        <Edit className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                        <span className="hidden sm:inline">Correct Profile</span>
@@ -586,6 +623,16 @@ export default function CustomersPage() {
                                      <Button 
                                        variant="destructive" 
                                        className="w-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 border-0 text-xs sm:text-sm"
+                                       onClick={() => {
+                                         const confirmText = `This will anonymise ${activeCustomer.name}'s personal data (name/email/phone) in this session view. Proceed?`;
+                                         if (!window.confirm(confirmText)) return;
+                                         setActiveCustomer(prev => prev ? ({
+                                           ...prev,
+                                           name: 'Anonymous',
+                                           email: 'anonymous@example.com',
+                                           phone: ''
+                                         }) : prev);
+                                       }}
                                      >
                                        <UserX className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                                        <span className="hidden sm:inline">Anonymise Customer</span>
