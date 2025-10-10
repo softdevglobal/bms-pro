@@ -340,8 +340,8 @@ const InvoicesTable = ({
                 />
               </TableHead>
               <TableHead scope="col">
-                <Button variant="ghost" onClick={() => onSort('id')} className="p-0 h-auto font-semibold">
-                  Invoice {getSortIcon('id')}
+                <Button variant="ghost" onClick={() => onSort('invoiceNumber')} className="p-0 h-auto font-semibold">
+                  Invoice {getSortIcon('invoiceNumber')}
                 </Button>
               </TableHead>
               <TableHead scope="col">Type</TableHead>
@@ -399,7 +399,7 @@ const InvoicesTable = ({
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-semibold text-gray-900">{invoice.id}</span>
+                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap font-mono">{invoice.invoiceNumber || invoice.id}</span>
                       <Badge variant="outline" className="w-fit text-xs bg-blue-50 text-blue-700 border-blue-200">
                         Tax Invoice
                       </Badge>
@@ -530,7 +530,7 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-gray-900">Tax Invoice {invoice.id}</h2>
+                <h2 className="text-xl font-bold text-gray-900 truncate">Tax Invoice {invoice.invoiceNumber || invoice.id}</h2>
                 <Sparkles className="h-5 w-5 text-yellow-500 animate-pulse" />
               </div>
               <StatusBadge status={invoice.status} className="mt-2" />
@@ -541,12 +541,21 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
           </Button>
         </div>
 
-        {/* ATO Compliance Block - The Crown Jewel */}
+          {/* ATO Compliance Block - The Crown Jewel */}
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="space-y-4 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200"
         >
+          {/* Quick invoice meta row */}
+          <div className="text-xs text-gray-700 space-y-1">
+            <div className="font-mono whitespace-nowrap">
+              <span className="font-semibold">Invoice No:</span> {invoice.invoiceNumber || invoice.id}
+            </div>
+            <div className="break-all">
+              <span className="font-semibold">Booking ID:</span> {invoice.booking}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
             <h3 className="font-bold text-sm text-gray-800">ATO COMPLIANT TAX INVOICE</h3>
@@ -889,9 +898,18 @@ export default function Invoices() {
   });
 
   // Derived UI state
-  const isPaidOnlyActive = useMemo(() => (
-    activeStatuses.length === 1 && activeStatuses.includes('PAID')
-  ), [activeStatuses]);
+  const paidInvoices = useMemo(() => (
+    invoicesData.filter(inv => inv.status === 'PAID')
+  ), [invoicesData]);
+
+  const paidInvoicesTotalAmount = useMemo(() => (
+    paidInvoices.reduce((sum, inv) => {
+      const computedPaid = (inv.paidAmount && inv.paidAmount > 0)
+        ? inv.paidAmount
+        : (inv.finalTotal || inv.total || 0);
+      return sum + computedPaid;
+    }, 0)
+  ), [paidInvoices]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -955,6 +973,7 @@ export default function Invoices() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(invoice => 
+        (invoice.invoiceNumber && invoice.invoiceNumber.toLowerCase().includes(term)) ||
         invoice.id.toLowerCase().includes(term) ||
         invoice.booking.toLowerCase().includes(term) ||
         invoice.customer.name.toLowerCase().includes(term) ||
@@ -1131,7 +1150,7 @@ export default function Invoices() {
 
       // Prepare data for CSV export
       const csvData = filteredInvoices.map(invoice => ({
-        'Invoice ID': invoice.id,
+        'Invoice Number': invoice.invoiceNumber || invoice.id,
         'Type': invoice.type,
         'Customer Name': invoice.customer.name,
         'Customer Email': invoice.customer.email,
@@ -1157,7 +1176,7 @@ export default function Invoices() {
 
       // Define CSV headers
       const headers = [
-        'Invoice ID', 'Type', 'Customer Name', 'Customer Email', 'Customer ABN',
+        'Invoice Number', 'Type', 'Customer Name', 'Customer Email', 'Customer ABN',
         'Booking ID', 'Resource', 'Issue Date', 'Due Date', 'Subtotal', 'GST',
         'Total Amount', 'Paid Amount', 'Balance Due', 'Status', 'Deposit Paid',
         'Final Total', 'Booking Source', 'Quotation ID', 'Priority', 'Created At', 'Sent At'
@@ -1180,6 +1199,14 @@ export default function Invoices() {
   const handleInvoiceAction = useCallback(async (action, invoiceId) => {
     try {
       switch (action) {
+        case 'preview': {
+          const invoiceToPreview = invoicesData.find(inv => inv.id === invoiceId);
+          if (invoiceToPreview) {
+            setSelectedInvoice(invoiceToPreview);
+            setShowDetailPane(true);
+          }
+          return; // No API call needed
+        }
         case 'send':
           await updateInvoiceStatus(invoiceId, 'SENT', token);
           break;
@@ -1349,7 +1376,7 @@ export default function Invoices() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-300" />
-                  <span>Paid: <strong>${summaryStats.paidAmount.toLocaleString('en-AU')} AUD</strong></span>
+                  <span>Paid: <strong>${paidInvoicesTotalAmount.toLocaleString('en-AU')} AUD</strong></span>
                 </div>
                 {summaryStats.overdueCount > 0 && (
                   <div className="flex items-center gap-2">
@@ -1414,9 +1441,9 @@ export default function Invoices() {
               className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md"
             >
               <CreditCard className="h-4 w-4" />
-              Payments
+              Paid
               <Badge className="ml-2 bg-green-500 text-white text-xs">
-                {paymentsData.length}
+                {paidInvoices.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -1489,16 +1516,6 @@ export default function Invoices() {
                     <Filter className="mr-2 h-4 w-4" />
                     More Filters
                     </Button>
-                    <Button 
-                      variant={isPaidOnlyActive ? 'default' : 'outline'}
-                      className="bg-white/50"
-                      size="sm"
-                      aria-pressed={isPaidOnlyActive}
-                      onClick={() => setActiveStatuses(prev => (isPaidOnlyActive ? [] : ['PAID']))}
-                    >
-                      {isPaidOnlyActive && <CheckCircle className="mr-2 h-4 w-4 text-green-600" />}
-                      Paid Only
-                    </Button>
                   </div>
                 </div>
                 
@@ -1547,16 +1564,69 @@ export default function Invoices() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CreditCard className="h-5 w-5 text-green-600" />
-                      Payment Transactions
+                      Paid
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="text-center py-12">
-                      <CreditCard className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 text-lg">Payments table coming soon...</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Full payment reconciliation and transaction management
-                      </p>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-gray-50/50">
+                          <TableRow>
+                            <TableHead>Invoice</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Booking</TableHead>
+                            <TableHead>Paid On</TableHead>
+                            <TableHead className="text-right">Paid Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paidInvoices.length > 0 ? (
+                            paidInvoices.map((invoice) => (
+                              <TableRow key={invoice.id} className="hover:bg-gray-50/50">
+                                <TableCell className="font-medium">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-sm font-semibold text-gray-900 whitespace-nowrap font-mono">
+                                      {invoice.invoiceNumber || invoice.id}
+                                    </span>
+                                    <Badge variant="outline" className="w-fit text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                      Tax Invoice
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-gray-900">{invoice.customer.name}</span>
+                                    <span className="text-xs text-gray-500 truncate max-w-[180px]">{invoice.customer.email}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-800">
+                                    {invoice.booking}
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="text-sm text-gray-700">
+                                  {invoice.updatedAt ? format(invoice.updatedAt, 'dd MMM yyyy') : '-'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <span className="font-mono font-semibold text-gray-900">
+                                    ${(((invoice.paidAmount && invoice.paidAmount > 0) ? invoice.paidAmount : (invoice.finalTotal || invoice.total || 0))).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <StatusBadge status={invoice.status} />
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="h-24 text-center">
+                                <div className="text-gray-500">No paid invoices yet.</div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>
