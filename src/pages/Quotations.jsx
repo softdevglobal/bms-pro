@@ -865,7 +865,9 @@ export default function Quotations() {
                   <div className="flex items-center">
                     <Building2 className="h-4 w-4 mr-2 text-gray-500" />
                     <span className="text-gray-600">Resource:</span>
-                    <span className="ml-2 font-medium">{selectedQuotation.resource}</span>
+                    <span className="ml-2 font-medium" title={resourceMap[selectedQuotation.resource] || selectedQuotation.resourceName || selectedQuotation.resource}>
+                      {resourceMap[selectedQuotation.resource] || selectedQuotation.resourceName || selectedQuotation.resource}
+                    </span>
                   </div>
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-2 text-gray-500" />
