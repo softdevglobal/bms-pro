@@ -56,7 +56,8 @@ export default function CommsSendEmail() {
     bookingId: "",
     customSubject: "",
     customBody: "",
-    variables: {}
+    variables: {},
+    attachments: []
   });
 
   // Helper function to show toast notifications
@@ -162,6 +163,7 @@ export default function CommsSendEmail() {
       
       const emailPayload = {
         ...emailData,
+        // pass File objects directly; service will use multipart/form-data
         variables: {
           customerName: emailData.recipientName,
           customerEmail: emailData.recipientEmail,
@@ -328,7 +330,7 @@ export default function CommsSendEmail() {
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <div className="font-medium">{booking.eventType}</div>
-                        <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                        <Badge variant="outline" className="text-black border-gray-300 bg-white">
                           {booking.status}
                         </Badge>
                       </div>
@@ -397,6 +399,55 @@ export default function CommsSendEmail() {
                 className="min-h-[120px]"
               />
             </div>
+
+          <div>
+            <label className="text-sm font-medium">Attachments</label>
+            <Input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                setEmailData(prev => ({
+                  ...prev,
+                  attachments: [
+                    ...(Array.isArray(prev.attachments) ? prev.attachments : []),
+                    ...files.map((file, idx) => ({ uid: `${Date.now()}-${idx}-${file.name}` , file }))
+                  ]
+                }));
+                // reset input so same file can be re-selected
+                e.currentTarget.value = '';
+              }}
+            />
+            {emailData.attachments && emailData.attachments.length > 0 && (
+              <div className="text-xs text-gray-600 mt-2 space-y-1">
+                {emailData.attachments.map((att, i) => (
+                  <div key={att.uid || `${i}`} className="flex items-center justify-between rounded border border-gray-200 bg-white px-2 py-1">
+                    <div className="truncate">
+                      {(att.file?.name || att.name)} ({Math.ceil((att.file?.size || att.size || 0)/1024)} KB)
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEmailData(prev => ({
+                          ...prev,
+                          attachments: (prev.attachments || []).filter((x, idx) => (idx === i ? false : true))
+                        }));
+                      }}
+                      aria-label={`Remove ${(att.file?.name || att.name || 'attachment')}`}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
             <Button 
               onClick={handleSendEmail} 

@@ -127,14 +127,42 @@ export const emailCommsAPI = {
   // Send a customized email
   async sendEmail(emailData, token) {
     try {
-      const response = await fetch(`${API_BASE_URL}/email-comms/send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailData)
-      });
+      // If there are attachments (File objects), send as multipart/form-data
+      let response;
+      if (emailData.attachments && emailData.attachments.length > 0 && typeof FormData !== 'undefined') {
+        const form = new FormData();
+        // Append JSON payload as a plain string so the server receives it in req.body
+        form.append('payload', JSON.stringify({
+          ...emailData,
+          attachments: undefined
+        }));
+        try {
+          emailData.attachments.forEach((entry) => {
+            const file = entry?.file || entry; // support {uid,file} or File
+            if (file && typeof file.name === 'string') {
+              form.append('attachments', file, file.name);
+            }
+          });
+        } catch (e) {
+          console.error('FormData append failed', e);
+        }
+        response = await fetch(`${API_BASE_URL}/email-comms/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: form
+        });
+      } else {
+        response = await fetch(`${API_BASE_URL}/email-comms/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(emailData)
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));

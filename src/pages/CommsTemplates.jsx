@@ -364,9 +364,15 @@ export default function CommsTemplates() {
                   <div>
                     <CardTitle className="text-lg">{template.name}</CardTitle>
                     <CardDescription className="flex items-center gap-2 mt-1">
-                      <Badge variant={template.type === 'email' ? 'default' : 'secondary'}>
-                        {template.type.toUpperCase()}
-                      </Badge>
+                      {template.type === 'email' ? (
+                        <Badge className="bg-blue-100 text-black border-blue-200">
+                          {template.type.toUpperCase()}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          {template.type.toUpperCase()}
+                        </Badge>
+                      )}
                       {template.isActive ? (
                         <Badge variant="outline" className="text-green-600">
                           <CheckCircle className="w-3 h-3 mr-1" />
