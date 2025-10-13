@@ -35,11 +35,11 @@ const QUICK_FILTERS = [
 const RESOURCES = ['Hall A', 'Hall B', 'Main Hall', 'Conference Room', 'Studio Space'];
 
 const STATUSES = [
-  { value: 'PENDING_REVIEW', label: 'Pending Review', color: 'bg-orange-500' },
-  { value: 'TENTATIVE', label: 'Tentative', color: 'bg-yellow-500' },
-  { value: 'CONFIRMED', label: 'Confirmed', color: 'bg-green-500' },
-  { value: 'COMPLETED', label: 'Completed', color: 'bg-blue-500' },
-  { value: 'CANCELLED', label: 'Cancelled', color: 'bg-red-500' },
+  { value: 'pending', label: 'Pending Review', color: 'bg-orange-500' },
+  { value: 'tentative', label: 'Tentative', color: 'bg-yellow-500' },
+  { value: 'confirmed', label: 'Confirmed', color: 'bg-green-500' },
+  { value: 'completed', label: 'Completed', color: 'bg-blue-500' },
+  { value: 'cancelled', label: 'Cancelled', color: 'bg-red-500' },
 ];
 
 const PRIORITIES = [

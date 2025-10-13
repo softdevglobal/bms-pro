@@ -348,9 +348,10 @@ export default function BookingsAll() {
     const today = new Date();
     const todayBookings = bookings.filter(b => isToday(b.start));
     const tomorrowBookings = bookings.filter(b => isTomorrow(b.start));
-    const pendingReview = bookings.filter(b => b.status === 'PENDING_REVIEW');
+    // Normalize to current backend statuses (lowercase) but keep compatibility
+    const pendingReview = bookings.filter(b => b.status === 'pending' || b.status === 'PENDING_REVIEW');
     const totalRevenue = bookings
-      .filter(b => b.status === 'COMPLETED')
+      .filter(b => b.status === 'completed' || b.status === 'COMPLETED')
       .reduce((sum, b) => sum + b.totalValue, 0);
     
     const avgBookingValue = bookings.length > 0 
@@ -391,8 +392,9 @@ export default function BookingsAll() {
         filtered = filtered.filter(b => b.start >= weekStart && b.start <= weekEnd);
         break;
       case 'overdue':
+        // Overdue = requests awaiting action whose start time is in the past
         filtered = filtered.filter(b => 
-          b.status === 'TENTATIVE' && b.start < now
+          (b.status === 'pending' || b.status === 'PENDING_REVIEW' || b.status === 'tentative' || b.status === 'TENTATIVE') && b.start < now
         );
         break;
       case 'highValue':
@@ -525,7 +527,8 @@ export default function BookingsAll() {
             break;
           case 'P':
             e.preventDefault();
-            setFilters(prev => ({ ...prev, statuses: ['PENDING_REVIEW'] }));
+            // Pending review shortcut
+            setFilters(prev => ({ ...prev, statuses: ['pending'] }));
             break;
         }
       }
