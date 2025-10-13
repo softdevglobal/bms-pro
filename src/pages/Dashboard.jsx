@@ -107,6 +107,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedResource, setSelectedResource] = useState('all');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [statusFilter, setStatusFilter] = useState('confirmed');
 
   // Helper function to format currency values
   const formatCurrencyValue = (amount) => {
@@ -157,7 +159,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-  }, [token, getToken, user, parentUserData, authLoading, selectedResource]);
+  }, [token, getToken, user, parentUserData, authLoading, selectedResource, selectedDate, statusFilter]);
 
   if (loading) {
     return (
@@ -450,7 +452,7 @@ export default function Dashboard() {
       <section className="flex flex-wrap items-center gap-3 rounded-lg border p-3 shadow-sm relative z-20">
         <Filter className="h-5 w-5 text-gray-500" />
         <div className="flex-grow sm:flex-grow-0">
-          <DatePicker />
+          <DatePicker value={selectedDate} onChange={setSelectedDate} />
         </div>
         <div className="flex-grow sm:flex-grow-0">
           <Select value={selectedResource} onValueChange={setSelectedResource}>
@@ -468,15 +470,15 @@ export default function Dashboard() {
           </Select>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="bg-blue-50 border-blue-200 text-blue-700">Confirmed</Button>
-            <Button variant="outline" size="sm">Tentative</Button>
-            <Button variant="outline" size="sm">Block-out</Button>
+            <Button variant="outline" size="sm" className={statusFilter==='confirmed'?"bg-blue-50 border-blue-200 text-blue-700":""} onClick={()=>setStatusFilter('confirmed')}>Confirmed</Button>
+            <Button variant="outline" size="sm" className={statusFilter==='pending'?"bg-blue-50 border-blue-200 text-blue-700":""} onClick={()=>setStatusFilter('pending')}>Tentative</Button>
+            <Button variant="outline" size="sm" className={statusFilter==='block-out'?"bg-blue-50 border-blue-200 text-blue-700":""} onClick={()=>setStatusFilter('block-out')}>Block-out</Button>
         </div>
         <Button 
           variant="link" 
           size="sm" 
           className="text-gray-600"
-          onClick={() => setSelectedResource('all')}
+          onClick={() => { setSelectedResource('all'); setSelectedDate(new Date()); setStatusFilter('confirmed'); }}
         >
           Reset filters
         </Button>
