@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
-import { createAdminBooking, fetchResources, fetchBookingsForCalendar } from "@/services/bookingService";
+import { createAdminBooking, fetchResources, fetchBookingsForCalendar, updateBooking } from "@/services/bookingService";
 import { getDataUserId } from "@/services/userService";
 
 export default function AdminBookingForm({ 
@@ -325,12 +325,19 @@ export default function AdminBookingForm({
         dateValue: formData.bookingDate
       });
 
-      const result = await createAdminBooking(bookingData, token);
+      let savedBooking = null;
+      if (mode === 'edit' && initialData?.id) {
+        // Perform update
+        savedBooking = await updateBooking(initialData.id, bookingData, token);
+      } else {
+        const result = await createAdminBooking(bookingData, token);
+        savedBooking = result.booking;
+      }
       
       setSuccess(true);
       
       // Show success message with calculated price
-      const successMessage = result.booking.calculatedPrice 
+      const successMessage = savedBooking?.calculatedPrice 
         ? `Booking created successfully! Total cost: $${result.booking.calculatedPrice.toFixed(2)}`
         : 'Booking created successfully!';
       
@@ -338,9 +345,7 @@ export default function AdminBookingForm({
       
       // Call success callback after a short delay
       setTimeout(() => {
-        if (onSuccess) {
-          onSuccess(result.booking);
-        }
+        if (onSuccess) onSuccess(savedBooking || {});
         onClose();
       }, 1500);
 

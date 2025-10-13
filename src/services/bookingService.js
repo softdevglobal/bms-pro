@@ -125,6 +125,31 @@ export const updateBookingPrice = async (bookingId, calculatedPrice, priceDetail
   }
 };
 
+// Update a booking core fields
+export const updateBooking = async (bookingId, update, token) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(update)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(`Failed to update booking: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+    }
+
+    const result = await response.json();
+    return result.booking;
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    throw error;
+  }
+};
+
 // Fetch resources for a hall owner
 export const fetchResources = async (token) => {
   try {

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react';
 import {
   Table,
@@ -42,6 +43,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
+import AdminBookingForm from '../components/bookings/AdminBookingForm';
 
 // Transform backend booking data to match frontend format
 const transformBookingData = (backendBooking) => {
@@ -204,6 +206,9 @@ export default function BookingsConfirmed() {
     title: '',
     message: ''
   });
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [formInitialData, setFormInitialData] = useState(null);
+  const [formMode, setFormMode] = useState('edit');
   const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [reminderBookings, setReminderBookings] = useState([]);
   const [isSendingReminders, setIsSendingReminders] = useState(false);
@@ -639,6 +644,27 @@ export default function BookingsConfirmed() {
       }
     });
   }, [bookings]);
+
+  const handleEditBooking = useCallback((booking) => {
+    setFormMode('edit');
+    const initial = {
+      id: booking.id,
+      customerName: booking.customer?.name || '',
+      customerEmail: booking.customer?.email || '',
+      customerPhone: booking.customerPhone || '',
+      eventType: booking.purpose || '',
+      selectedHall: booking.resourceId || booking.selectedHall || '',
+      bookingDate: format(booking.start, 'yyyy-MM-dd'),
+      startTime: format(booking.start, 'HH:mm'),
+      endTime: format(booking.end, 'HH:mm'),
+      additionalDescription: booking.additionalDescription || booking.notes || '',
+      estimatedPrice: booking.totalValue || booking.calculatedPrice || '',
+      guestCount: booking.guests || '',
+      status: booking.status || 'confirmed'
+    };
+    setFormInitialData(initial);
+    setShowBookingForm(true);
+  }, []);
   
   return (
     <main className="space-y-6">
@@ -720,77 +746,81 @@ export default function BookingsConfirmed() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="text-sm table-fixed w-full">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12 px-4">
+                  <TableRow className="h-9">
+                    <TableHead className="w-8 px-2 py-1">
                       <Checkbox
                         checked={selectedRows.size > 0 && selectedRows.size === filteredBookings.length}
                         onCheckedChange={handleSelectAll}
                         aria-label="Select all bookings on this page"
                       />
                     </TableHead>
-                    <TableHead>
-                       <Button variant="ghost" onClick={() => handleSort('resource')}>Booking</Button>
+                    <TableHead className="w-[200px] px-2 py-1">
+                       <Button variant="ghost" className="h-7 px-1" onClick={() => handleSort('resource')}>Booking</Button>
                     </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" onClick={() => handleSort('customer')}>Customer</Button>
+                    <TableHead className="w-[200px] px-2 py-1">
+                      <Button variant="ghost" className="h-7 px-1" onClick={() => handleSort('customer')}>Customer</Button>
                     </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" onClick={() => handleSort('start')}>Start</Button>
+                    <TableHead className="w-[110px] whitespace-nowrap px-2 py-1">
+                      <Button variant="ghost" className="h-8 px-2" onClick={() => handleSort('start')}>Start</Button>
                     </TableHead>
-                    <TableHead>
-                      <Button variant="ghost" onClick={() => handleSort('end')}>End</Button>
+                    <TableHead className="w-[110px] whitespace-nowrap px-2 py-1">
+                      <Button variant="ghost" className="h-8 px-2" onClick={() => handleSort('end')}>End</Button>
                     </TableHead>
-                    <TableHead className="text-right">
-                      <Button variant="ghost" onClick={() => handleSort('balance')}>Balance</Button>
+                    <TableHead className="w-[80px] text-right whitespace-nowrap px-2 py-1">
+                      <Button variant="ghost" className="h-7 px-1" onClick={() => handleSort('balance')}>Balance</Button>
                     </TableHead>
-                    <TableHead>Deposit</TableHead>
-                    <TableHead className="text-right">Bond</TableHead>
-                    <TableHead>Docs</TableHead>
-                    <TableHead className="text-right">Add-ons</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-[60px] whitespace-nowrap px-2 py-1">Deposit</TableHead>
+                    <TableHead className="w-[50px] text-right whitespace-nowrap px-2 py-1">Add-ons</TableHead>
+                    <TableHead className="w-[120px] whitespace-nowrap px-2 py-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => (
-                    <TableRow key={booking.id} data-state={selectedRows.has(booking.id) ? 'selected' : ''}>
-                      <TableCell className="px-4">
+                    <TableRow key={booking.id} data-state={selectedRows.has(booking.id) ? 'selected' : ''} className="h-10">
+                      <TableCell className="px-2 py-1">
                          <Checkbox
                           checked={selectedRows.has(booking.id)}
                           onCheckedChange={() => handleSelectRow(booking.id)}
                           aria-label={`Select booking ${booking.id}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">
-                        <span className="inline-block max-w-[260px] truncate" title={`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}>
+                      <TableCell className="font-medium w-[200px] px-2 py-1">
+                        <span className="inline-block w-full truncate leading-tight" title={`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}>
                           {`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <div className="max-w-[220px] truncate" title={booking.customer.name}>{booking.customer.name}</div>
-                        <div className="text-sm text-muted-foreground max-w-[220px] truncate" title={booking.customer.email}>{booking.customer.email}</div>
+                      <TableCell className="w-[200px] px-2 py-1">
+                        <div className="truncate leading-tight" title={booking.customer.name}>{booking.customer.name}</div>
+                        <div className="text-xs text-muted-foreground truncate" title={booking.customer.email}>{booking.customer.email}</div>
                       </TableCell>
-                      <TableCell>{format(booking.start, 'dd MMM yyyy, HH:mm')}</TableCell>
-                      <TableCell>{format(booking.end, 'dd MMM yyyy, HH:mm')}</TableCell>
-                      <TableCell className="text-right font-mono">${booking.balance.toFixed(2)}</TableCell>
-                      <TableCell>
+                      <TableCell className="w-[110px] whitespace-nowrap px-2 py-1">{format(booking.start, 'dd MMM HH:mm')}</TableCell>
+                      <TableCell className="w-[110px] whitespace-nowrap px-2 py-1">{format(booking.end, 'dd MMM HH:mm')}</TableCell>
+                      <TableCell className="w-[80px] text-right font-mono px-2 py-1">${booking.balance.toFixed(2)}</TableCell>
+                      <TableCell className="w-[60px] whitespace-nowrap px-2 py-1">
                         <Badge variant={booking.deposit === 'Paid' ? 'secondary' : 'destructive'}>
                           {booking.deposit}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono">{booking.bond > 0 ? `$${booking.bond.toFixed(2)}` : '—'}</TableCell>
-                      <TableCell>
-                        <DocStatus docs={booking.docs} />
-                      </TableCell>
-                      <TableCell className="text-right">{booking.addOns}</TableCell>
-                      <TableCell>
+                      <TableCell className="w-[50px] text-right px-2 py-1">{booking.addOns}</TableCell>
+                      <TableCell className="w-[120px] whitespace-nowrap px-2 py-1">
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditBooking(booking)}
+                            className="h-7 w-7"
+                            aria-label="Edit"
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleCompleteBooking(booking.id)}
-                            className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                            className="h-7 px-2 text-green-700 border-green-200"
                           >
                             <CheckCircle2 className="mr-1 h-3 w-3" />
                             Complete
@@ -939,6 +969,18 @@ export default function BookingsConfirmed() {
           </div>
         </div>
       )}
+
+      {/* Booking Form Dialog */}
+      <AdminBookingForm
+        isOpen={showBookingForm}
+        onClose={() => setShowBookingForm(false)}
+        onSuccess={() => {
+          setShowBookingForm(false);
+          fetchConfirmedBookings(true);
+        }}
+        initialData={formInitialData}
+        mode={formMode}
+      />
     </main>
   );
 }
