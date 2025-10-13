@@ -409,16 +409,16 @@ export default function Dashboard() {
             
           </div>
           
-          {/* Quick stats preview */}
+          {/* Quick stats preview (live data) */}
           <div className="hidden md:flex flex-col gap-2 relative z-10">
             <div className="bg-gradient-to-br from-white/15 to-white/25 backdrop-blur-sm rounded-lg p-2 lg:p-3 text-center border border-white/20 hover:bg-white/20 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-xl">
-              <div className="text-base lg:text-xl font-bold text-white animate-pulse">24</div>
-              <div className="text-xs text-blue-100 font-medium">Bookings</div>
+              <div className="text-base lg:text-xl font-bold text-white">{(dashboardData?.kpis?.bookingsThisWeek?.value) || '0'}</div>
+              <div className="text-xs text-blue-100 font-medium">Bookings (This Week)</div>
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
             </div>
             <div className="bg-gradient-to-br from-white/15 to-white/25 backdrop-blur-sm rounded-lg p-2 lg:p-3 text-center border border-white/20 hover:bg-white/20 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-xl">
-              <div className="text-base lg:text-xl font-bold text-white animate-pulse">$12K</div>
-              <div className="text-xs text-blue-100 font-medium">Revenue</div>
+              <div className="text-base lg:text-xl font-bold text-white">{formatCurrencyValue(dashboardData?.kpis?.revenueMtd?.value || '$0')}</div>
+              <div className="text-xs text-blue-100 font-medium">Revenue (MTD)</div>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-blue-400/10 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
             </div>
           </div>
