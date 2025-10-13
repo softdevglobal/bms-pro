@@ -23,23 +23,12 @@ import {
   MoreVertical,
   CheckCircle,
   XCircle,
-  Link,
-  Eye,
-  Edit,
-  Send,
   AlertTriangle,
   Clock,
   Star,
   Users,
-  Check,
-  X,
 } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// Removed dropdown menu; 3-dot now opens detail pane directly
 
 const StatusBadge = ({ status }) => {
   const statusMap = {
@@ -191,10 +180,12 @@ const BookingsTableAdvanced = React.forwardRef(({
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium text-gray-900">{booking.customer.name}</div>
-                  <div className="text-sm text-gray-500">{booking.purpose}</div>
+                  <div className="font-medium text-gray-900 max-w-[220px] truncate" title={booking.customer.name}>{booking.customer.name}</div>
+                  <div className="text-sm text-gray-500 max-w-[220px] truncate" title={booking.purpose}>{booking.purpose}</div>
                 </TableCell>
-                <TableCell>{booking.resource}</TableCell>
+                <TableCell>
+                  <span className="inline-block max-w-[180px] truncate align-middle" title={booking.resource}>{booking.resource}</span>
+                </TableCell>
                 <TableCell>
                   {booking.bookingSource === 'quotation' && booking.quotationId ? (
                     <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
@@ -230,51 +221,16 @@ const BookingsTableAdvanced = React.forwardRef(({
                     </span>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onRowClick(booking)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                            </DropdownMenuItem>
-                            {booking.status === 'pending' && (
-                                <>
-                                    <DropdownMenuItem 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onConfirmOrder(booking.id);
-                                        }}
-                                        className="text-green-600 focus:text-green-600"
-                                    >
-                                        <Check className="mr-2 h-4 w-4" />
-                                        Confirm Order
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onCancelOrder(booking.id);
-                                        }}
-                                        className="text-red-600 focus:text-red-600"
-                                    >
-                                        <X className="mr-2 h-4 w-4" />
-                                        Cancel Order
-                                    </DropdownMenuItem>
-                                </>
-                            )}
-                            <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                            </DropdownMenuItem>
-                             <DropdownMenuItem>
-                                <Send className="mr-2 h-4 w-4" />
-                                Send Pay Link
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => onRowClick(booking)}
+                        aria-label="Open details"
+                        title="Open details"
+                    >
+                        <MoreVertical className="h-4 w-4" />
+                    </Button>
                 </TableCell>
               </TableRow>
             ))

@@ -762,10 +762,14 @@ export default function BookingsConfirmed() {
                           aria-label={`Select booking ${booking.id}`}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-block max-w-[260px] truncate" title={`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}>
+                          {`${booking.resource} - ${booking.customer.name.split(' ')[0]} (${booking.guests})`}
+                        </span>
+                      </TableCell>
                       <TableCell>
-                        <div>{booking.customer.name}</div>
-                        <div className="text-sm text-muted-foreground">{booking.customer.email}</div>
+                        <div className="max-w-[220px] truncate" title={booking.customer.name}>{booking.customer.name}</div>
+                        <div className="text-sm text-muted-foreground max-w-[220px] truncate" title={booking.customer.email}>{booking.customer.email}</div>
                       </TableCell>
                       <TableCell>{format(booking.start, 'dd MMM yyyy, HH:mm')}</TableCell>
                       <TableCell>{format(booking.end, 'dd MMM yyyy, HH:mm')}</TableCell>
