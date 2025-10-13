@@ -290,14 +290,24 @@ export const deletePayment = async (paymentId, token) => {
 };
 
 // Helper function to generate invoice data from booking
-export const generateInvoiceFromBooking = (booking, invoiceType, amount, description) => {
-  return {
+export const generateInvoiceFromBooking = (booking, invoiceType, amount, description, options = {}) => {
+  const payload = {
     bookingId: booking.id,
     invoiceType: invoiceType,
     amount: amount,
     description: description || `${booking.eventType} - ${invoiceType} Payment`,
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   };
+  // For quotation-derived bookings, pass deposit meta so backend can apply GST to full amount
+  if (booking.bookingSource === 'quotation') {
+    payload.bookingSource = 'quotation';
+    if (booking.quotationId) payload.quotationId = booking.quotationId;
+    if (options.depositAmount !== undefined) payload.depositAmount = options.depositAmount;
+    if (options.depositType) payload.depositType = options.depositType;
+    if (options.depositValue !== undefined) payload.depositValue = options.depositValue;
+    if (options.fullQuotedTotal !== undefined) payload.fullQuotedTotal = options.fullQuotedTotal;
+  }
+  return payload;
 };
 
 // Download invoice PDF

@@ -71,6 +71,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices, fetchPayments, createInvoice, updateInvoiceStatus, recordPayment, calculateInvoiceSummary, generateInvoiceFromBooking, downloadInvoicePDF, sendInvoiceReminders } from '@/services/invoiceService';
 import { fetchBookingsForCalendar } from '@/services/bookingService';
+import { fetchQuotation } from '@/services/quotationService';
 
 
 // Smart filter chips component with beautiful animations
@@ -515,6 +516,11 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
   const gstRate = 0.1;
   const isLargeInvoice = invoice.total >= 1000;
   const balanceDue = invoice.total - invoice.paidAmount;
+    const isQuotationPreview = invoice.bookingSource === 'quotation';
+    const quotedSubtotal = typeof invoice.subtotal === 'number' ? invoice.subtotal : Math.max(0, (invoice.total || 0) - (invoice.gst || 0));
+    const gstAmount = typeof invoice.gst === 'number' ? invoice.gst : Math.round(quotedSubtotal * gstRate * 100) / 100;
+    const depositAmount = invoice.depositPaid || 0;
+    const finalDueInclGst = isQuotationPreview ? (invoice.finalTotal || Math.max(0, (invoice.total || 0) - depositAmount)) : (invoice.total || 0);
 
   return (
     <motion.div
@@ -655,6 +661,47 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
                 <p>All amounts rounded to nearest cent (0.5¢ rounds up)</p>
               </div>
             </div>
+          </div>
+        </motion.div>
+
+        {/* Compact GST Summary Tiles */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`${isQuotationPreview ? 'from-yellow-50 to-amber-50 border-yellow-200' : 'from-blue-50 to-indigo-50 border-blue-200'} bg-gradient-to-br rounded-xl p-4 border`}
+        >
+          <div className={`grid gap-2 grid-cols-1`}>
+            {isQuotationPreview ? (
+              <>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Quoted Total</div>
+                  <div className="font-mono text-sm font-semibold">${quotedSubtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Deposit</div>
+                  <div className="font-mono text-sm font-semibold">${depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">GST (10%)</div>
+                  <div className="font-mono text-sm font-semibold">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
+                  <div className="font-mono text-sm font-semibold text-green-700 whitespace-nowrap">${finalDueInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">GST (10%)</div>
+                  <div className="font-mono text-sm font-semibold whitespace-nowrap">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div className="rounded-md bg-white/70 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Total incl. GST</div>
+                  <div className="font-mono text-sm font-semibold text-green-700 whitespace-nowrap">${(invoice.total || (quotedSubtotal + gstAmount)).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                </div>
+              </>
+            )}
           </div>
         </motion.div>
 
@@ -884,6 +931,7 @@ export default function Invoices() {
   const [isSendingReminders, setIsSendingReminders] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingSearchTerm, setBookingSearchTerm] = useState('');
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [newInvoiceData, setNewInvoiceData] = useState({
     invoiceType: 'DEPOSIT',
     amount: '',
@@ -1069,6 +1117,102 @@ export default function Invoices() {
     setShowDetailPane(false);
     setSelectedInvoice(null);
   }, []);
+
+  // When a quotation-based booking is selected, fetch the quotation to get deposit info
+  useEffect(() => {
+    const loadQuotation = async () => {
+      if (selectedBooking && selectedBooking.bookingSource === 'quotation' && selectedBooking.quotationId && token) {
+        try {
+          const quotation = await fetchQuotation(selectedBooking.quotationId, token);
+          setSelectedQuotation(quotation);
+        } catch (e) {
+          console.error('Failed to fetch quotation details:', e);
+          setSelectedQuotation(null);
+        }
+      } else {
+        setSelectedQuotation(null);
+      }
+    };
+    loadQuotation();
+  }, [selectedBooking, token]);
+
+  // Auto-suggest amount/description for quotation-derived bookings based on invoice type
+  useEffect(() => {
+    if (!selectedBooking) return;
+    const isFromQuotation = selectedBooking.bookingSource === 'quotation' && selectedQuotation;
+    const totalAmount = Number(selectedBooking.calculatedPrice || selectedQuotation?.totalAmount || 0);
+    const depositAmount = Number(selectedQuotation?.depositAmount || 0);
+
+    if (isFromQuotation) {
+      if (newInvoiceData.invoiceType === 'DEPOSIT') {
+        // Prefill with deposit amount when available
+        if (depositAmount && newInvoiceData.amount !== String(depositAmount)) {
+          setNewInvoiceData(prev => ({
+            ...prev,
+            amount: String(depositAmount),
+            description: `${selectedBooking.eventType} - DEPOSIT Payment`
+          }));
+        }
+      } else if (newInvoiceData.invoiceType === 'FINAL') {
+        const finalDue = Math.max(0, totalAmount - depositAmount);
+        if (finalDue && newInvoiceData.amount !== String(finalDue)) {
+          setNewInvoiceData(prev => ({
+            ...prev,
+            amount: String(finalDue),
+            description: `${selectedBooking.eventType} - FINAL Payment`
+          }));
+        }
+      }
+    } else {
+      // For non-quotation bookings, if amount is empty suggest the calculated price
+      if (!newInvoiceData.amount && totalAmount) {
+        setNewInvoiceData(prev => ({ ...prev, amount: String(totalAmount) }));
+      }
+    }
+    // Only react to changes in invoice type, booking, or fetched quotation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newInvoiceData.invoiceType, selectedBooking, selectedQuotation]);
+
+  // Derived totals for UI display when booking came from quotation
+  const quotationTotals = useMemo(() => {
+    if (!selectedBooking || selectedBooking.bookingSource !== 'quotation' || !selectedQuotation) return null;
+    const total = Number(selectedBooking.calculatedPrice || selectedQuotation.totalAmount || 0);
+    const deposit = Number(selectedQuotation.depositAmount || 0);
+    const final = Math.max(0, total - deposit);
+    return { total, deposit, final };
+  }, [selectedBooking, selectedQuotation]);
+
+  const isQuotationBooking = useMemo(() => (
+    !!(selectedBooking && selectedBooking.bookingSource === 'quotation' && selectedQuotation)
+  ), [selectedBooking, selectedQuotation]);
+
+  // Preview calculation (what user will pay) for FINAL when from quotation
+  const finalDuePreview = useMemo(() => {
+    if (!isQuotationBooking || newInvoiceData.invoiceType !== 'FINAL') return null;
+    const amount = Number(newInvoiceData.amount || 0); // This should be the full quoted total
+    const gst = Math.round(amount * 0.1 * 100) / 100; // 10% GST
+    const deposit = quotationTotals?.deposit || 0;
+    const due = Math.max(0, amount + gst - deposit);
+    return { gst, due };
+  }, [isQuotationBooking, newInvoiceData.amount, newInvoiceData.invoiceType, quotationTotals]);
+
+  // Full-bill GST summary (independent of invoice type)
+  const quotationGstSummary = useMemo(() => {
+    if (!quotationTotals) return null;
+    const gst = Math.round(quotationTotals.total * 0.1 * 100) / 100;
+    const totalInclGst = quotationTotals.total + gst;
+    const finalDueInclGst = Math.max(0, totalInclGst - quotationTotals.deposit);
+    return { gst, totalInclGst, finalDueInclGst };
+  }, [quotationTotals]);
+
+  // Generic GST preview for non-quotation bookings
+  const genericGstPreview = useMemo(() => {
+    if (!selectedBooking) return null;
+    const base = Number(newInvoiceData.amount || selectedBooking.calculatedPrice || 0);
+    if (!base || Number.isNaN(base)) return { gst: 0, totalInclGst: 0 };
+    const gst = Math.round(base * 0.1 * 100) / 100;
+    return { gst, totalInclGst: base + gst };
+  }, [selectedBooking, newInvoiceData.amount]);
 
   // Handle creating new invoice
   const handleCreateInvoice = useCallback(async () => {
@@ -1885,6 +2029,59 @@ export default function Invoices() {
                   </div>
                 </div>
 
+                {/* Summary tiles */}
+                {isQuotationBooking ? (
+                  <div className="mt-3 rounded-xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 p-3 text-xs text-gray-900 shadow-sm">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">Quoted Total</div>
+                        <div className="font-mono text-sm font-semibold">${quotationTotals.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">Deposit</div>
+                        <div className="font-mono text-sm font-semibold">${quotationTotals.deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      {quotationGstSummary && (
+                        <div className="rounded-md bg-white/70 px-3 py-2">
+                          <div className="text-[11px] text-gray-500">GST (10%)</div>
+                          <div className="font-mono text-sm font-semibold">${quotationGstSummary.gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                      )}
+                      {quotationGstSummary && (
+                        <div className="rounded-md bg-white/70 px-3 py-2">
+                          <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
+                          <div className="font-mono text-sm font-semibold text-green-700">${quotationGstSummary.finalDueInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                        </div>
+                      )}
+                    </div>
+                    {finalDuePreview && (
+                      <div className="mt-3 rounded-md bg-white p-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="text-gray-600">GST on full bill (10% of amount):</div>
+                          <div className="font-mono font-semibold">${finalDuePreview.gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                        <div className="mt-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="font-medium">Final due this invoice:</div>
+                          <div className="font-mono text-green-700 font-bold">${finalDuePreview.due.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 text-xs text-gray-900 shadow-sm">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">GST (10%)</div>
+                        <div className="font-mono text-sm font-semibold">${(genericGstPreview?.gst || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
+                        <div className="font-mono text-sm font-semibold text-green-700">${(genericGstPreview?.totalInclGst || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
                   <Textarea
@@ -2125,3 +2322,4 @@ export default function Invoices() {
     </div>
   );
 }
+
