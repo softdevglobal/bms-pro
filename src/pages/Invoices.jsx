@@ -1005,6 +1005,30 @@ export default function Invoices() {
     fetchData();
   }, [user, token]);
 
+  // Apply URL hash (e.g., /invoices#INV-202510-6152) as a filter and optional auto-open
+  useEffect(() => {
+    const applyHashFilter = () => {
+      if (typeof window === 'undefined') return;
+      const raw = window.location.hash ? decodeURIComponent(window.location.hash.replace(/^#/, '')) : '';
+      if (!raw) return;
+      setSearchTerm(prev => (prev === raw ? prev : raw));
+      // If we already have invoices loaded, try to auto-open the invoice
+      if (invoicesData && invoicesData.length > 0) {
+        const match = invoicesData.find(inv => (inv.invoiceNumber && inv.invoiceNumber.toString() === raw) || inv.id === raw);
+        if (match) {
+          setSelectedInvoice(match);
+          setShowDetailPane(true);
+        }
+      }
+    };
+
+    applyHashFilter();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', applyHashFilter);
+      return () => window.removeEventListener('hashchange', applyHashFilter);
+    }
+  }, [invoicesData]);
+
   // Intelligent search with debouncing
   useEffect(() => {
     const timer = setTimeout(() => {

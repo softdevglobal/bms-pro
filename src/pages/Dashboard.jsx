@@ -17,6 +17,7 @@ import {
 import KpiCard from '../components/dashboard/KpiCard';
 import TodaySchedule from '../components/dashboard/TodaySchedule';
 import PaymentsDue from '../components/dashboard/PaymentsDue';
+import { downloadInvoicePDF } from '@/services/invoiceService';
 import HoldsExpiring from '../components/dashboard/HoldsExpiring';
 import AlertsTasks from '../components/dashboard/AlertsTasks';
 import RecentActivity from '../components/dashboard/RecentActivity';
@@ -109,6 +110,7 @@ export default function Dashboard() {
   const [selectedResource, setSelectedResource] = useState('all');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('confirmed');
+  const [sendingLinkFor, setSendingLinkFor] = useState(null);
 
   // Helper function to format currency values
   const formatCurrencyValue = (amount) => {
@@ -160,6 +162,41 @@ export default function Dashboard() {
 
     loadDashboardData();
   }, [token, getToken, user, parentUserData, authLoading, selectedResource, selectedDate, statusFilter]);
+
+  // Handlers for Payments Due actions
+  const handleSendPaymentLink = async (payment) => {
+    try {
+      if (!payment?.invoice) return;
+      // Simple action: download invoice PDF as a quick shareable artifact
+      const authToken = token || getToken();
+      setSendingLinkFor(payment.invoice);
+      // If we had invoiceId, prefer it; otherwise backend can look up by number in future
+      // For now, just open the invoice PDF if id is available in payment.bookingId
+      if (payment.invoiceId) {
+        await downloadInvoicePDF(payment.invoiceId, authToken);
+      } else {
+        // Fallback: no-op with toast-like alert
+        console.log('Payment link send placeholder for', payment.invoice);
+      }
+    } finally {
+      setSendingLinkFor(null);
+    }
+  };
+
+  const handleRecordBankTransfer = (payment) => {
+    // Navigate to invoices page or open a modal in future
+    window.location.href = '/invoices';
+  };
+
+  const handleShareEmail = (payment) => {
+    // Navigate to Comms > Send Email with prefilled query params
+    const params = new URLSearchParams();
+    if (payment?.customer) params.set('toName', payment.customer);
+    if (payment?.invoice) params.set('invoice', payment.invoice);
+    if (payment?.amountAud) params.set('amount', payment.amountAud.toString());
+    if (payment?.bookingId) params.set('bookingId', payment.bookingId);
+    window.location.href = `/comms-send-email?${params.toString()}`;
+  };
 
   if (loading) {
     return (
@@ -544,7 +581,13 @@ export default function Dashboard() {
             <TodaySchedule schedule={data.scheduleToday} />
           </div>
           <div>
-            <PaymentsDue payments={data.paymentsDue} userSettings={userSettings} />
+            <PaymentsDue 
+              payments={data.paymentsDue} 
+              userSettings={userSettings}
+              onSendLink={handleSendPaymentLink}
+              onRecordBank={handleRecordBankTransfer}
+              onShareEmail={handleShareEmail}
+            />
           </div>
         </section>
 
