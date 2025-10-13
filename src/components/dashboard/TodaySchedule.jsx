@@ -24,7 +24,9 @@ const TodaySchedule = ({ schedule }) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-blue-600" />
-          Today’s Schedule
+          <Link to={createPageUrl('BookingsAll')} className="hover:text-blue-600">
+            Today’s Schedule
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -37,8 +39,8 @@ const TodaySchedule = ({ schedule }) => {
                 <div className="space-y-1">
                   <p className="font-semibold text-gray-500">{item.time}</p>
                   <Link 
-                    to={item.bookingId ? createPageUrl(`bookings/${item.bookingId}`) : '#'} 
-                    className={`block font-bold text-gray-800 ${item.bookingId ? 'hover:text-blue-600' : 'cursor-default'}`}
+                    to={createPageUrl('BookingsAll')}
+                    className={`block font-bold text-gray-800 hover:text-blue-600`}
                   >
                     {item.title}
                   </Link>
