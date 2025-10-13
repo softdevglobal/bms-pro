@@ -101,7 +101,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
       animate="visible"
       exit="hidden"
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="fixed top-0 right-0 h-full w-96 bg-white border-l shadow-2xl z-20 flex flex-col"
+      className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white border-l shadow-2xl z-20 flex flex-col"
     >
       <div className="flex items-center justify-between p-4 border-b">
         <h2 className="text-lg font-semibold">Booking Details</h2>
@@ -115,18 +115,18 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
         <div className="relative overflow-hidden rounded-2xl">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600" />
           <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(circle at 20% 20%, white 1px, transparent 1px)', backgroundSize:'16px 16px'}} />
-          <div className="relative p-5 text-white flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold">
+          <div className="relative p-5 text-white flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold flex-shrink-0">
               {customerInitials || 'C'}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold">{booking.purpose}</h3>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold truncate" title={booking.purpose}>{booking.purpose}</h3>
                 {getStatusBadge(booking.status)}
               </div>
               <div className="flex items-center gap-2 text-sm text-white/95 mt-1">
                 <User className="h-3.5 w-3.5 opacity-90" />
-                <span className="whitespace-normal break-words">{booking.customer.name}</span>
+                <span className="whitespace-normal break-words truncate" title={booking.customer.name}>{booking.customer.name}</span>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1 bg-white/15 px-2 py-1 rounded">
@@ -145,7 +145,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
 
         {/* Key Details */}
         <div className="border rounded-xl p-4 bg-white/50">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Booking ID */}
             <div className="rounded-lg border bg-gradient-to-br from-gray-50 to-white p-3">
               <div className="flex items-center justify-between mb-1">
