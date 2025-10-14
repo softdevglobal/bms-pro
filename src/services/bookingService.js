@@ -10,7 +10,12 @@ export const transformBookingToCalendarEvent = (backendBooking) => {
     id: backendBooking.id,
     title: `${backendBooking.customerName} — ${backendBooking.eventType}`,
     status: backendBooking.status?.toUpperCase() || 'PENDING',
+    // Keep a generic display field while also exposing explicit id/name for consumers
     resource: backendBooking.hallName || backendBooking.selectedHall,
+    resourceId: backendBooking.selectedHall || backendBooking.resourceId,
+    resourceName: backendBooking.hallName || backendBooking.resourceName,
+    hallName: backendBooking.hallName,
+    selectedHall: backendBooking.selectedHall,
     start: startDateTime,
     end: endDateTime,
     customer: backendBooking.customerName,

@@ -144,6 +144,17 @@ export default function Calendar() {
 
   const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM
 
+  // Resolve a friendly resource name for an event using available data
+  const getResourceDisplayName = (event) => {
+    if (!event) return '';
+    if (event.resourceName) return event.resourceName;
+    if (event.hallName) return event.hallName;
+    const resourceId = event.selectedHall || event.resourceId;
+    const resourceObj = resources.find(r => r.id === resourceId);
+    if (resourceObj?.name) return resourceObj.name;
+    return event.resource || '';
+  };
+
   // Render different calendar views
   const renderCalendarView = () => {
     switch (view) {
@@ -782,10 +793,11 @@ export default function Calendar() {
                         <span className="text-sm">{selectedEvent.eventType}</span>
                       </div>
                     )}
-                    {selectedEvent.resource && (
+                    {/* Resource name */}
+                    {(selectedEvent.selectedHall || selectedEvent.resource || selectedEvent.resourceId) && (
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">{selectedEvent.resource}</span>
+                        <span className="text-sm">{getResourceDisplayName(selectedEvent)}</span>
                       </div>
                     )}
                   </div>
