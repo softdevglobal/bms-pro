@@ -577,7 +577,10 @@ export default function BookingsHolds() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Value:</span>
-                  <span className="font-medium">${selectedBooking.totalValue?.toLocaleString('en-AU') || '0'}</span>
+                  <div className="text-right">
+                    <div className="font-medium">${((selectedBooking.totalValue || 0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                    <div className="text-xs text-gray-500">incl. GST</div>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Event Date:</span>
@@ -686,8 +689,8 @@ export default function BookingsHolds() {
                 <div><strong>Time:</strong> {format(confirmDialog.booking.start, 'HH:mm')} - {format(confirmDialog.booking.end, 'HH:mm')}</div>
                 <div><strong>Resource:</strong> {confirmDialog.booking.resource}</div>
                 <div><strong>Guests:</strong> {confirmDialog.booking.guests}</div>
-                <div><strong>Total Value:</strong> ${confirmDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
-                <div className="text-green-800"><strong>Total incl. GST:</strong> ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                <div><strong>Base Amount:</strong> ${confirmDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
+                <div className="text-green-800"><strong>Total Value (incl. GST):</strong> ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           )}
@@ -761,7 +764,8 @@ export default function BookingsHolds() {
                 <div><strong>Time:</strong> {format(cancelDialog.booking.start, 'HH:mm')} - {format(cancelDialog.booking.end, 'HH:mm')}</div>
                 <div><strong>Resource:</strong> {cancelDialog.booking.resource}</div>
                 <div><strong>Guests:</strong> {cancelDialog.booking.guests}</div>
-                <div><strong>Total Value:</strong> ${cancelDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
+                <div><strong>Base Amount:</strong> ${cancelDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
+                <div className="text-red-800"><strong>Total Value (incl. GST):</strong> ${((cancelDialog.booking.totalValue || 0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           )}

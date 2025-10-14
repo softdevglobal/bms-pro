@@ -386,8 +386,8 @@ export default function BookingsCompleted() {
         <div style="font-weight:600;margin-bottom:8px">Summary</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#374151">
           <div>Total completed: <strong>${dataToPrint.length}</strong></div>
-          <div>Total revenue: <strong>$${dataToPrint.reduce((s,b)=>s+b.totalValue,0).toLocaleString('en-AU')}</strong></div>
-          <div>Avg value: <strong>$${(dataToPrint.length>0?Math.round(dataToPrint.reduce((s,b)=>s+b.totalValue,0)/dataToPrint.length):0).toLocaleString('en-AU')}</strong></div>
+          <div>Total revenue: <strong>$${(dataToPrint.reduce((s,b)=>s+b.totalValue,0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)</strong></div>
+          <div>Avg value: <strong>$${(dataToPrint.length>0?Math.round((dataToPrint.reduce((s,b)=>s+b.totalValue,0)/dataToPrint.length) * 1.1 * 100)/100:0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)</strong></div>
         </div>
       </div>`;
 
@@ -433,7 +433,7 @@ export default function BookingsCompleted() {
                 <div class="col"><div class="label">Purpose</div><div class="value">${b.purpose || ''}</div></div>
                 <div class="col"><div class="label">Deposit</div><div class="value">${b.deposit}</div></div>
                 <div class="col"><div class="label">Bond</div><div class="value">$${b.bond.toLocaleString('en-AU')}</div></div>
-                <div class="col"><div class="label">Total Value</div><div class="value">$${b.totalValue.toLocaleString('en-AU')}</div></div>
+                <div class="col"><div class="label">Total Value</div><div class="value">$${(b.totalValue * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)</div></div>
               </div>
             </div>
           `).join('')}
@@ -474,8 +474,8 @@ export default function BookingsCompleted() {
         booking.status,
         booking.guests,
         booking.purpose,
-        `$${booking.totalValue.toLocaleString('en-AU')}`,
-        `$${booking.balance.toLocaleString('en-AU')}`,
+        `$${(booking.totalValue * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)`,
+        `$${(booking.balance * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)`,
         booking.deposit,
         `$${booking.bond.toLocaleString('en-AU')}`,
         booking.addOns,
@@ -556,7 +556,7 @@ export default function BookingsCompleted() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${bookings.reduce((sum, b) => sum + b.totalValue, 0).toLocaleString()}
+                  ${(bookings.reduce((sum, b) => sum + b.totalValue, 0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)
                 </p>
               </div>
               <FileText className="h-8 w-8 text-green-500" />
@@ -754,7 +754,7 @@ export default function BookingsCompleted() {
                 {visibleInvoiceTargets.length}/{invoiceTargets.length} customer{visibleInvoiceTargets.length !== 1 ? 's' : ''}
               </div>
               <div className="px-2 py-0.5 rounded-full bg-white/70 border text-purple-700">
-                Total ${visibleInvoiceTargets.reduce((s,b)=>s+(b.totalValue||0),0).toLocaleString('en-AU')}
+                Total ${(visibleInvoiceTargets.reduce((s,b)=>s+(b.totalValue||0),0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)
               </div>
               <div className="px-2 py-0.5 rounded-full bg-white/70 border text-emerald-700">
                 Sent {Array.from(sentInvoiceIds).length}
@@ -790,7 +790,7 @@ export default function BookingsCompleted() {
                         <span className="ml-0 sm:ml-2 rounded-full border px-1 py-0.5 text-[9px] sm:text-[10px] uppercase tracking-wide text-purple-700 bg-purple-50 whitespace-nowrap">Final</span>
                       </div>
                       <div className="text-gray-600 truncate max-w-[72vw] sm:max-w-[36rem]">
-                        Invoice for {b.purpose} — {format(b.start, 'dd MMM yyyy')} ({b.resource}) • ${b.totalValue.toLocaleString('en-AU')}
+                        Invoice for {b.purpose} — {format(b.start, 'dd MMM yyyy')} ({b.resource}) • ${(b.totalValue * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })} (incl. GST)
                       </div>
                       <div className="text-[10px] sm:text-xs text-gray-400 truncate max-w-[72vw] sm:max-w-[36rem]">{b.id} · {format(b.start, 'HH:mm')} - {format(b.end, 'HH:mm')}</div>
                     </div>

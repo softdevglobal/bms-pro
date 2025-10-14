@@ -213,11 +213,12 @@ const BookingsTableAdvanced = React.forwardRef(({
                     <StatusBadge status={booking.status} />
                 </TableCell>
                 <TableCell className="text-right">
-                    ${booking.totalValue.toLocaleString('en-AU')}
+                    <div className="font-medium">${(booking.totalValue * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                    <div className="text-xs text-gray-500">incl. GST</div>
                 </TableCell>
                  <TableCell className="text-right">
                     <span className={booking.balance > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                        ${booking.balance.toLocaleString('en-AU')}
+                        ${(booking.balance * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })}
                     </span>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
