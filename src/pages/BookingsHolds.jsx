@@ -88,6 +88,25 @@ export default function BookingsHolds() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, booking: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, booking: null });
   const [cancelReason, setCancelReason] = useState('');
+  // Deposit states
+  const [depositType, setDepositType] = useState('Fixed'); // 'Fixed' | 'Percentage'
+  const [depositValue, setDepositValue] = useState(''); // number string; if Percentage => percent, if Fixed => amount incl GST
+  const gstRate = 0.1;
+  const depositPreview = (() => {
+    const booking = confirmDialog.booking;
+    const val = Number(depositValue);
+    if (!booking || Number.isNaN(val) || val <= 0) return 0;
+    const baseInclGst = (Number(booking.totalValue || 0)) * (1 + gstRate);
+    if (depositType === 'Percentage') {
+      const pct = Math.max(0, Math.min(100, val));
+      return Math.round((baseInclGst * (pct / 100)) * 100) / 100;
+    }
+    // Fixed amount is already GST-inclusive per requirement
+    return Math.round(val * 100) / 100;
+  })();
+  const bookingTotalInclGst = confirmDialog.booking 
+    ? Math.round(((Number(confirmDialog.booking.totalValue || 0)) * (1 + gstRate)) * 100) / 100 
+    : 0;
   
   // Toast notification state
   const [toast, setToast] = useState({
@@ -228,6 +247,9 @@ export default function BookingsHolds() {
   };
 
   const handleConfirm = (booking) => {
+    // Reset deposit fields when opening
+    setDepositType('Fixed');
+    setDepositValue('');
     setConfirmDialog({ open: true, booking });
   };
 
@@ -252,7 +274,14 @@ export default function BookingsHolds() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: 'confirmed' })
+        body: JSON.stringify({ 
+          status: 'confirmed',
+          // Persist deposit metadata on booking so emails and invoices can use it
+          depositType: depositType,
+          depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
+          // Always send computed GST-inclusive amount
+          depositAmount: depositPreview
+        })
       });
 
       if (!response.ok) {
@@ -658,6 +687,43 @@ export default function BookingsHolds() {
                 <div><strong>Resource:</strong> {confirmDialog.booking.resource}</div>
                 <div><strong>Guests:</strong> {confirmDialog.booking.guests}</div>
                 <div><strong>Total Value:</strong> ${confirmDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
+                <div className="text-green-800"><strong>Total incl. GST:</strong> ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Deposit selector */}
+          {confirmDialog.booking && (
+            <div className="mt-4 border rounded-lg p-4">
+              <h4 className="font-semibold mb-3">Deposit</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div className="sm:col-span-1">
+                  <label className="text-sm text-gray-600">Type</label>
+                  <Select value={depositType} onValueChange={setDepositType}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Fixed">Fixed</SelectItem>
+                      <SelectItem value="Percentage">Percentage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="text-sm text-gray-600">{depositType === 'Percentage' ? 'Percentage (%)' : 'Amount (GST incl.)'}</label>
+                  <Input 
+                    className="mt-1"
+                    inputMode="decimal"
+                    placeholder={depositType === 'Percentage' ? 'e.g. 50' : 'e.g. 300.00'}
+                    value={depositValue}
+                    onChange={(e) => setDepositValue(e.target.value.replace(/[^0-9.]/g, ''))}
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <div className="text-sm text-gray-600">Deposit to charge (incl. GST)</div>
+                  <div className="mt-1 text-lg font-semibold">${depositPreview.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-xs text-gray-500">Full amount incl. GST: ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                </div>
               </div>
             </div>
           )}

@@ -145,6 +145,18 @@ export default function BookingsAll() {
   const [formMode, setFormMode] = useState('create');
   const [formInitialData, setFormInitialData] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  // Deposit confirmation modal states (reuse simple inline dialog in ConfirmationModal payload)
+  const [depositType, setDepositType] = useState('Fixed');
+  const [depositValue, setDepositValue] = useState('');
+  const gstRate = 0.1;
+  const bookingTotalInclGst = (b) => Math.round(((Number(b?.totalValue || 0)) * (1 + gstRate)) * 100) / 100;
+  const computeDepositInclGst = (b, type, rawVal) => {
+    const val = Number(rawVal);
+    if (!b || Number.isNaN(val) || val <= 0) return 0;
+    const baseIncl = bookingTotalInclGst(b);
+    if (type === 'Percentage') return Math.round((baseIncl * (Math.max(0, Math.min(100, val)) / 100)) * 100) / 100;
+    return Math.round(val * 100) / 100; // fixed is already GST incl
+  };
   
   // Advanced filter states
   const [filters, setFilters] = useState({
@@ -597,6 +609,9 @@ export default function BookingsAll() {
       return;
     }
 
+    // Reset deposit inputs and show modal with deposit fields
+    setDepositType('Fixed');
+    setDepositValue('');
     // Show beautiful confirmation modal
     setConfirmationModal({
       isOpen: true,
@@ -610,7 +625,41 @@ export default function BookingsAll() {
         purpose: booking.purpose,
         start: booking.start,
         end: booking.end,
-        totalValue: booking.totalValue
+        totalValue: booking.totalValue,
+        // Extra render data used by ConfirmationModal (it forwards through to its template)
+        extraContent: (
+          <div className="mt-3 border rounded-lg p-3">
+            <div className="text-sm font-semibold mb-2">Deposit</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div>
+                <label className="text-sm text-gray-600">Type</label>
+                <select
+                  className="mt-1 w-full border rounded px-2 py-2 text-sm"
+                  value={depositType}
+                  onChange={(e) => setDepositType(e.target.value)}
+                >
+                  <option value="Fixed">Fixed</option>
+                  <option value="Percentage">Percentage</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">{depositType === 'Percentage' ? 'Percentage (%)' : 'Amount (GST incl.)'}</label>
+                <input
+                  className="mt-1 w-full border rounded px-2 py-2 text-sm"
+                  inputMode="decimal"
+                  placeholder={depositType === 'Percentage' ? 'e.g. 50' : 'e.g. 300.00'}
+                  value={depositValue}
+                  onChange={(e) => setDepositValue(e.target.value.replace(/[^0-9.]/g, ''))}
+                />
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Deposit to charge (incl. GST)</div>
+                <div className="mt-1 text-base font-semibold">${computeDepositInclGst(booking, depositType, depositValue).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-500">Full amount incl. GST: ${bookingTotalInclGst(booking).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+          </div>
+        )
       },
       onConfirm: async () => {
         try {
@@ -627,7 +676,12 @@ export default function BookingsAll() {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ status: 'confirmed' })
+            body: JSON.stringify({ 
+              status: 'confirmed',
+              depositType: depositType,
+              depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
+              depositAmount: computeDepositInclGst(booking, depositType, depositValue)
+            })
           });
 
           if (!response.ok) {
@@ -1169,6 +1223,7 @@ export default function BookingsAll() {
                 setSelectedBooking(null);
               }}
               onEdit={handleEdit}
+              onAccept={(b) => handleConfirmOrder(b.id)}
               
             />
           )}

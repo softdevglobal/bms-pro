@@ -162,6 +162,14 @@ const ConfirmationModal = ({
                         )}
                       </div>
                     </div>
+                    {/* Optional custom content area (e.g., deposit form) */}
+                    {bookingDetails.extraContent && (
+                      <div className="mt-3">
+                        {typeof bookingDetails.extraContent === 'function' 
+                          ? bookingDetails.extraContent() 
+                          : bookingDetails.extraContent}
+                      </div>
+                    )}
                   </div>
                 )}
 

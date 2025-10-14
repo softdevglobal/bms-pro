@@ -59,7 +59,7 @@ const PaymentStatus = ({ label, amount, status }) => {
   );
 };
 
-const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false }) => {
+const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept }) => {
   const paneVariants = {
     hidden: { x: '100%', opacity: 0 },
     visible: { x: '0%', opacity: 1 },
@@ -310,7 +310,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
           {(booking.status === 'pending' || booking.status === 'PENDING_REVIEW') && (
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700">Decline</Button>
-              <Button className="bg-green-600 hover:bg-green-700">Accept Booking</Button>
+              <Button className="bg-green-600 hover:bg-green-700" onClick={() => onAccept && onAccept(booking)}>Accept Booking</Button>
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
