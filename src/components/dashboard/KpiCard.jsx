@@ -22,12 +22,12 @@ const KpiCard = ({ title, value, delta, deltaType = 'increase', sparklineData, n
       : 'text-gray-600 bg-gray-100';
 
   return (
-    <Card variant="transparent" className="rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300">
+    <Card variant="transparent" className="rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold text-gray-900">{value}</div>
+        <div className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{value}</div>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -41,7 +41,7 @@ const KpiCard = ({ title, value, delta, deltaType = 'increase', sparklineData, n
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <div className="mt-4 h-16 w-full" aria-label={`Sparkline showing trend for ${title}`}>
+        <div className="mt-4 h-12 sm:h-16 w-full" aria-label={`Sparkline showing trend for ${title}`}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sparklineData.map(v => ({ value: v }))}>
               <defs>

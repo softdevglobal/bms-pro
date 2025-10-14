@@ -21,35 +21,38 @@ const PaymentsDue = ({ payments, userSettings }) => {
       </CardHeader>
       <CardContent>
         {sortedPayments.length > 0 ? (
-          <ul className="space-y-4">
-            {sortedPayments.map((payment) => (
-              <li key={payment.invoice} className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-800 truncate" title={payment.customer}>{payment.customer}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 min-w-0">
-                    <a
-                      className="truncate max-w-[180px] text-blue-600 hover:underline"
-                      href={`/invoices#${encodeURIComponent(payment.invoiceId || payment.invoice)}`}
-                      title={payment.invoice}
-                    >
-                      {payment.invoice}
-                    </a>
-                    <span className="font-medium text-gray-700 whitespace-nowrap">{payment.type}</span>
+          <div className="space-y-2">
+            {sortedPayments.map((payment, index) => (
+              <React.Fragment key={payment.invoice}>
+                <div className="flex items-start justify-between gap-2 py-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-gray-800 truncate text-sm" title={payment.customer}>{payment.customer}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0 mt-0.5">
+                      <a
+                        className="truncate max-w-[180px] text-blue-600 hover:underline"
+                        href={`/invoices#${encodeURIComponent(payment.invoiceId || payment.invoice)}`}
+                        title={payment.invoice}
+                      >
+                        {payment.invoice}
+                      </a>
+                      <span className="font-medium text-gray-700 whitespace-nowrap">{payment.type}</span>
+                    </div>
+                    <div className="mt-0.5">
+                      <Badge variant={payment.status === 'Overdue' ? 'destructive' : 'outline'} className="text-xs py-0">
+                        {payment.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="mt-1">
-                    <Badge variant={payment.status === 'Overdue' ? 'destructive' : 'outline'}>
-                      {payment.status}
-                    </Badge>
+                  <div className="text-right shrink-0 w-[110px]">
+                    <p className="font-bold text-base text-gray-900 whitespace-nowrap">
+                      {formatCurrency(payment.amountAud, userSettings?.currency || 'AUD')}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right shrink-0 w-[110px]">
-                  <p className="font-bold text-lg text-gray-900 whitespace-nowrap">
-                    {formatCurrency(payment.amountAud, userSettings?.currency || 'AUD')}
-                  </p>
-                </div>
-              </li>
+                {index < sortedPayments.length - 1 && <hr className="border-gray-200" />}
+              </React.Fragment>
             ))}
-          </ul>
+          </div>
         ) : (
           <div className="text-center py-10 text-gray-500">
             <p>No payments due.</p>

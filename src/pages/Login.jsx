@@ -35,7 +35,7 @@ export default function Login() {
       
       // Save token/role using auth context
       await login(data.token, data.role);
-      navigate('/Welcome', { replace: true });
+      navigate('/Dashboard', { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       

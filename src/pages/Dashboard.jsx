@@ -522,9 +522,9 @@ export default function Dashboard() {
       </section>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 gap-6 relative z-20">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 relative z-20">
         {/* Row A: KPI Cards */}
-        <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 auto-rows-fr">
           <KpiCard 
             title="Occupancy Today" 
             value={data.kpis.occupancyToday.value} 
@@ -576,7 +576,7 @@ export default function Dashboard() {
         </section>
 
         {/* Row B: Schedule & Payments */}
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <TodaySchedule schedule={data.scheduleToday} />
           </div>
@@ -592,7 +592,7 @@ export default function Dashboard() {
         </section>
 
         {/* Row C: Holds & Alerts */}
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 lg:grid-cols-2">
           <HoldsExpiring holds={data.holds} />
           <AlertsTasks alerts={data.alerts || []} />
         </section>
