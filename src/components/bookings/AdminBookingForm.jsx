@@ -40,6 +40,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { createAdminBooking, fetchResources, fetchBookingsForCalendar, updateBooking } from "@/services/bookingService";
 import { getDataUserId } from "@/services/userService";
+import { fetchPricing, getPricingForResource, calculatePrice } from "@/services/pricingService";
 
 export default function AdminBookingForm({ 
   isOpen, 
@@ -55,6 +56,8 @@ export default function AdminBookingForm({
   const [resources, setResources] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
+  const [pricingData, setPricingData] = useState([]);
+  const [calculatedPriceInfo, setCalculatedPriceInfo] = useState(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -97,7 +100,7 @@ export default function AdminBookingForm({
     { value: 'completed', label: 'Completed', color: 'bg-blue-100 text-blue-800' }
   ];
 
-  // Fetch resources on component mount
+  // Fetch resources and pricing on component mount
   useEffect(() => {
     const fetchResourcesData = async () => {
       try {
@@ -105,6 +108,14 @@ export default function AdminBookingForm({
         if (token) {
           const resourcesData = await fetchResources(token);
           setResources(resourcesData);
+          
+          // Fetch pricing data
+          try {
+            const pricing = await fetchPricing(token);
+            setPricingData(pricing);
+          } catch (pricingErr) {
+            console.error('Error fetching pricing:', pricingErr);
+          }
         }
       } catch (err) {
         console.error('Error fetching resources:', err);
@@ -155,6 +166,21 @@ export default function AdminBookingForm({
       setSuccess(false);
     }
   }, [isOpen, initialData]);
+
+  // Calculate price when relevant fields change
+  useEffect(() => {
+    if (formData.selectedHall && formData.bookingDate && formData.startTime && formData.endTime && pricingData.length > 0) {
+      const pricing = getPricingForResource(pricingData, formData.selectedHall);
+      if (pricing) {
+        const priceInfo = calculatePrice(pricing, formData.bookingDate, formData.startTime, formData.endTime);
+        setCalculatedPriceInfo(priceInfo);
+      } else {
+        setCalculatedPriceInfo(null);
+      }
+    } else {
+      setCalculatedPriceInfo(null);
+    }
+  }, [formData.selectedHall, formData.bookingDate, formData.startTime, formData.endTime, pricingData]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -338,10 +364,10 @@ export default function AdminBookingForm({
       
       // Show success message with calculated price
       const successMessage = savedBooking?.calculatedPrice 
-        ? `Booking created successfully! Total cost: $${result.booking.calculatedPrice.toFixed(2)}`
-        : 'Booking created successfully!';
+        ? `Booking ${mode === 'edit' ? 'updated' : 'created'} successfully! Total cost: $${savedBooking.calculatedPrice.toFixed(2)}`
+        : `Booking ${mode === 'edit' ? 'updated' : 'created'} successfully!`;
       
-      console.log('Booking created successfully:', successMessage);
+      console.log(successMessage);
       
       // Call success callback after a short delay
       setTimeout(() => {
@@ -570,12 +596,27 @@ export default function AdminBookingForm({
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center gap-2 text-blue-800">
                         <Calculator className="h-4 w-4" />
-                        <span className="text-sm font-medium">Price Preview</span>
+                        <span className="text-sm font-medium">Auto-Generated Price</span>
                       </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        Duration: {calculateDuration().toFixed(1)} hours. 
-                        Price will be calculated based on hall pricing and duration.
-                      </p>
+                      {calculatedPriceInfo ? (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-lg font-bold text-blue-900">
+                            ${calculatedPriceInfo.calculatedPrice.toFixed(2)}
+                          </p>
+                          <div className="text-xs text-blue-700 space-y-0.5">
+                            <p>Duration: {calculatedPriceInfo.durationHours.toFixed(1)} hours</p>
+                            <p>Rate: ${calculatedPriceInfo.rate.toFixed(2)}/{calculatedPriceInfo.rateType}</p>
+                            <p>{calculatedPriceInfo.isWeekend ? 'Weekend' : 'Weekday'} pricing applied</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-blue-600 mt-1">
+                          Duration: {calculateDuration().toFixed(1)} hours. 
+                          {pricingData.length === 0 
+                            ? 'Loading pricing data...' 
+                            : 'No pricing configured for this hall.'}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

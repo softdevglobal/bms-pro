@@ -298,15 +298,25 @@ export const generateInvoiceFromBooking = (booking, invoiceType, amount, descrip
     description: description || `${booking.eventType} - ${invoiceType} Payment`,
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   };
-  // For quotation-derived bookings, pass deposit meta so backend can apply GST to full amount
+  
+  // Pass deposit information for all bookings (web, admin, and quotation)
+  // Check if booking has deposit information from any source
+  if (booking.depositType && booking.depositType !== 'None' && booking.depositAmount > 0) {
+    // Include deposit details from the booking
+    payload.depositType = options.depositType || booking.depositType;
+    payload.depositAmount = options.depositAmount !== undefined ? options.depositAmount : booking.depositAmount;
+    if (booking.depositValue !== undefined) {
+      payload.depositValue = options.depositValue !== undefined ? options.depositValue : booking.depositValue;
+    }
+  }
+  
+  // For quotation-derived bookings, pass additional quotation metadata
   if (booking.bookingSource === 'quotation') {
     payload.bookingSource = 'quotation';
     if (booking.quotationId) payload.quotationId = booking.quotationId;
-    if (options.depositAmount !== undefined) payload.depositAmount = options.depositAmount;
-    if (options.depositType) payload.depositType = options.depositType;
-    if (options.depositValue !== undefined) payload.depositValue = options.depositValue;
     if (options.fullQuotedTotal !== undefined) payload.fullQuotedTotal = options.fullQuotedTotal;
   }
+  
   return payload;
 };
 

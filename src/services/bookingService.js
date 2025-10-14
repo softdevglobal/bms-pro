@@ -30,6 +30,10 @@ export const transformBookingToCalendarEvent = (backendBooking) => {
     additionalDescription: backendBooking.additionalDescription,
     bookingSource: backendBooking.bookingSource,
     quotationId: backendBooking.quotationId,
+    // Deposit information
+    depositType: backendBooking.depositType || null,
+    depositValue: backendBooking.depositValue || null,
+    depositAmount: backendBooking.depositAmount || 0,
     createdAt: backendBooking.createdAt ? new Date(backendBooking.createdAt) : new Date(),
     updatedAt: backendBooking.updatedAt ? new Date(backendBooking.updatedAt) : new Date(),
     // Calendar-specific properties

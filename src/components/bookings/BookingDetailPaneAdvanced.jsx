@@ -236,49 +236,74 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
 
         {/* Financials */}
         <div className="border rounded-lg p-4">
-            <h4 className="font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4" />Financials</h4>
+            <h4 className="font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4" />Payment Breakdown</h4>
             <div className="space-y-2">
-                {/* Show deposit information if available */}
+                {/* Price Breakdown with GST */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-900">${((booking.calculatedPrice || booking.totalValue || 0) / 1.1).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">GST (10%):</span>
+                    <span className="text-gray-900">${(((booking.calculatedPrice || booking.totalValue || 0) / 1.1) * 0.1).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                    <span className="font-semibold text-gray-700">Total (incl. GST):</span>
+                    <span className="font-semibold text-green-600 text-base">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                  </div>
+                </div>
+
+                {/* Deposit and Balance Information */}
                 {booking.depositType && booking.depositType !== 'None' && booking.depositAmount > 0 ? (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Deposit ({booking.depositType}):</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">${booking.depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                        <Badge variant="outline" className="bg-green-100 text-green-800">Paid</Badge>
+                  <div className="space-y-2 mt-3">
+                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-blue-800 font-medium">💰 Deposit ({booking.depositType}):</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-blue-900">${booking.depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                          <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">Paid</Badge>
+                        </div>
+                      </div>
+                      {booking.depositType === 'Percentage' && (
+                        <div className="text-xs text-blue-700">
+                          {booking.depositValue}% of total amount (GST inclusive)
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg p-3 border-2 border-green-500">
+                      <div className="flex justify-between items-center">
+                        <span className="text-green-800 font-semibold text-sm">💳 Balance Due:</span>
+                        <span className="font-bold text-green-900 text-lg">${((booking.calculatedPrice || booking.totalValue || 0) - booking.depositAmount).toFixed(2)} AUD</span>
+                      </div>
+                      <div className="text-xs text-green-700 mt-1">
+                        Remaining payment after deposit
                       </div>
                     </div>
-                    {booking.depositType === 'Percentage' && (
-                      <div className="text-xs text-gray-500 ml-4">
-                        {booking.depositValue}% of ${booking.totalValue.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
-                      </div>
-                    )}
-                    <PaymentStatus label="Balance" amount={booking.totalValue - booking.depositAmount} status={booking.balance > booking.depositAmount ? "pending" : "paid"} />
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <PaymentStatus label="Deposit" amount={booking.totalValue * 0.5} status="paid" />
-                    <PaymentStatus label="Balance" amount={booking.balance} status={booking.balance > 0 ? "pending" : "paid"} />
-                  </>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">No Deposit</Badge>
+                    </div>
+                  </div>
                 )}
+
                 {/* Payment progress */}
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span>Payment progress</span>
+                    <span>Payment Progress</span>
                     <span>{Math.round(paidRatio * 100)}%</span>
                   </div>
                   <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-green-400 to-emerald-600" style={{width: `${Math.round(paidRatio * 100)}%`}} />
                   </div>
                 </div>
-                <hr className="my-2" />
-                <div className="flex justify-between font-bold text-base">
-                    <span>Total Value:</span>
-                    <span>${booking.totalValue.toLocaleString('en-AU')}</span>
-                </div>
                 
                 {/* Show booking source information */}
-                <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="mt-3 pt-3 border-t border-gray-200">
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Booking Source:</span>
                     <div className="flex items-center gap-2">

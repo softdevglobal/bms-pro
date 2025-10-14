@@ -1160,35 +1160,40 @@ export default function Invoices() {
     loadQuotation();
   }, [selectedBooking, token]);
 
-  // Auto-suggest amount/description for quotation-derived bookings based on invoice type
+  // Auto-suggest amount/description for all bookings based on invoice type
   useEffect(() => {
     if (!selectedBooking) return;
     const isFromQuotation = selectedBooking.bookingSource === 'quotation' && selectedQuotation;
     const totalAmount = Number(selectedBooking.calculatedPrice || selectedQuotation?.totalAmount || 0);
-    const depositAmount = Number(selectedQuotation?.depositAmount || 0);
+    
+    // Get deposit amount from quotation or booking itself
+    const depositAmount = isFromQuotation 
+      ? Number(selectedQuotation?.depositAmount || 0)
+      : Number(selectedBooking.depositAmount || 0);
 
-    if (isFromQuotation) {
-      if (newInvoiceData.invoiceType === 'DEPOSIT') {
-        // Prefill with deposit amount when available
-        if (depositAmount && newInvoiceData.amount !== String(depositAmount)) {
-          setNewInvoiceData(prev => ({
-            ...prev,
-            amount: String(depositAmount),
-            description: `${selectedBooking.eventType} - DEPOSIT Payment`
-          }));
-        }
-      } else if (newInvoiceData.invoiceType === 'FINAL') {
-        const finalDue = Math.max(0, totalAmount - depositAmount);
-        if (finalDue && newInvoiceData.amount !== String(finalDue)) {
-          setNewInvoiceData(prev => ({
-            ...prev,
-            amount: String(finalDue),
-            description: `${selectedBooking.eventType} - FINAL Payment`
-          }));
-        }
+    if (newInvoiceData.invoiceType === 'DEPOSIT') {
+      // Prefill with deposit amount when available
+      if (depositAmount && newInvoiceData.amount !== String(depositAmount)) {
+        setNewInvoiceData(prev => ({
+          ...prev,
+          amount: String(depositAmount),
+          description: `${selectedBooking.eventType} - DEPOSIT Payment`
+        }));
+      } else if (!newInvoiceData.amount && totalAmount && !depositAmount) {
+        // If no deposit configured, suggest full amount
+        setNewInvoiceData(prev => ({ ...prev, amount: String(totalAmount) }));
+      }
+    } else if (newInvoiceData.invoiceType === 'FINAL') {
+      const finalDue = Math.max(0, totalAmount - depositAmount);
+      if (finalDue && newInvoiceData.amount !== String(finalDue)) {
+        setNewInvoiceData(prev => ({
+          ...prev,
+          amount: String(finalDue),
+          description: `${selectedBooking.eventType} - FINAL Payment`
+        }));
       }
     } else {
-      // For non-quotation bookings, if amount is empty suggest the calculated price
+      // For other invoice types, if amount is empty suggest the calculated price
       if (!newInvoiceData.amount && totalAmount) {
         setNewInvoiceData(prev => ({ ...prev, amount: String(totalAmount) }));
       }
@@ -2053,7 +2058,7 @@ export default function Invoices() {
                   </div>
                 </div>
 
-                {/* Summary tiles */}
+                {/* Summary tiles - Always show 4 tiles for all bookings */}
                 {isQuotationBooking ? (
                   <div className="mt-3 rounded-xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 p-3 text-xs text-gray-900 shadow-sm">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
@@ -2092,15 +2097,24 @@ export default function Invoices() {
                     )}
                   </div>
                 ) : (
+                  // For ALL other bookings (website/admin/direct) - show 4 tiles
                   <div className="mt-3 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 text-xs text-gray-900 shadow-sm">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">Total Amount</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.calculatedPrice || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div className="rounded-md bg-white/70 px-3 py-2">
+                        <div className="text-[11px] text-gray-500">Deposit</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.depositAmount || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                      </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">GST (10%)</div>
-                        <div className="font-mono text-sm font-semibold">${(genericGstPreview?.gst || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="font-mono text-sm font-semibold">${(Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
-                        <div className="font-mono text-sm font-semibold text-green-700">${(genericGstPreview?.totalInclGst || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                        <div className="font-mono text-sm font-semibold text-green-700">${(Math.max(0, (Number(selectedBooking.calculatedPrice || 0)) + (Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100) - (Number(selectedBooking.depositAmount || 0)))).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
                       </div>
                     </div>
                   </div>
