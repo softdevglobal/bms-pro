@@ -329,7 +329,7 @@ const QuotationForm = ({
         }
       `}</style>
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="w-[95vw] sm:w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md border-0 shadow-2xl mx-2 sm:mx-6 md:mx-8 my-4 sm:my-8">
+        <DialogContent className="w-[95vw] sm:w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md border-0 shadow-2xl">
         <DialogHeader>
           <DialogTitle>
             {quotation ? 'Edit Quotation' : 'Create New Quotation'}
