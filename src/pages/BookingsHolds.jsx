@@ -582,8 +582,7 @@ export default function BookingsHolds() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Value:</span>
                   <div className="text-right">
-                    <div className="font-medium">${((selectedBooking.totalValue || 0) * 1.1).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-                    <div className="text-xs text-gray-500">incl. GST</div>
+                    <div className="font-medium">${(selectedBooking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                   </div>
                 </div>
                 <div className="flex justify-between">
