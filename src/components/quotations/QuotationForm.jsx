@@ -311,22 +311,19 @@ const QuotationForm = ({
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
+          width: min(95vw, 64rem) !important; /* keep centered and responsive */
           max-height: 90vh !important;
           margin: 0 !important;
         }
         @media (max-width: 640px) {
           [data-radix-dialog-content] {
-            top: 2rem !important;
-            left: 1rem !important;
-            right: 1rem !important;
-            transform: none !important;
-            width: calc(100vw - 2rem) !important;
-            max-height: calc(100vh - 4rem) !important;
+            width: calc(100vw - 2rem) !important; /* centered with translate preserves centering */
+            max-height: calc(100vh - 2rem) !important;
           }
         }
       `}</style>
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md border-0 shadow-2xl mx-2 sm:mx-6 md:mx-8 my-4 sm:my-8">
+        <DialogContent className="w-[95vw] sm:w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-md border-0 shadow-2xl mx-2 sm:mx-6 md:mx-8 my-4 sm:my-8">
         <DialogHeader>
           <DialogTitle>
             {quotation ? 'Edit Quotation' : 'Create New Quotation'}
