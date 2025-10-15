@@ -28,8 +28,8 @@ const BookingConfirmForm = ({
     const val = Number(depositValue);
     if (!booking || Number.isNaN(val) || val <= 0) return 0;
     const selectedBase = taxType === 'inclusive'
-      ? Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100
-      : Math.round((Number(booking.totalValue || 0)) * 100) / 100;
+      ? Math.round((Number(booking.totalValue || 0)) * 100) / 100
+      : Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100;
     if (depositType === 'Percentage') {
       const pct = Math.max(0, Math.min(100, val));
       return Math.round((selectedBase * (pct / 100)) * 100) / 100;
@@ -78,12 +78,12 @@ const BookingConfirmForm = ({
           {taxType === 'inclusive' ? (
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Amount (incl. GST)</span>
-              <span className="font-semibold">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
             </div>
           ) : (
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Amount (excl. GST)</span>
-              <span className="font-semibold">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
             </div>
           )}
         </div>
@@ -131,7 +131,7 @@ const BookingConfirmForm = ({
             </div>
             <div className="text-xs text-gray-500">
               {taxType === 'inclusive' ? 'Full amount incl. GST' : 'Full amount excl. GST'}: {
-                (taxType === 'inclusive' ? amountInclGst : baseExclGst).toLocaleString('en-AU', { minimumFractionDigits: 2 })
+                (taxType === 'inclusive' ? baseExclGst : amountInclGst).toLocaleString('en-AU', { minimumFractionDigits: 2 })
               }
             </div>
           </div>
