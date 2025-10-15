@@ -1,9 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock3, Send, Trash2, Check } from 'lucide-react';
+import { Clock3, ArrowRight } from 'lucide-react';
 
 const getExpiryBadgeVariant = (expiresIn) => {
   const hours = parseInt(expiresIn.split('h')[0], 10);
@@ -13,6 +14,8 @@ const getExpiryBadgeVariant = (expiresIn) => {
 };
 
 const HoldsExpiring = ({ holds }) => {
+  const navigate = useNavigate();
+
   return (
     <Card variant="transparent" className="rounded-2xl shadow-sm">
       <CardHeader>
@@ -41,15 +44,15 @@ const HoldsExpiring = ({ holds }) => {
                   <TableCell>
                     <Badge variant={getExpiryBadgeVariant(hold.expiresIn)}>{hold.expiresIn}</Badge>
                   </TableCell>
-                  <TableCell className="flex gap-1">
-                    <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Confirm Booking">
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Send Payment Link">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600" aria-label="Release Hold">
-                      <Trash2 className="h-4 w-4" />
+                  <TableCell>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/bookingsholds')}
+                      className="h-8"
+                    >
+                      View
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { format, addHours, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import BookingConfirmForm from '../components/bookings/BookingConfirmForm';
 
 // Transform backend booking data to match frontend format
 const transformBookingData = (backendBooking) => {
@@ -91,6 +92,7 @@ export default function BookingsHolds() {
   // Deposit states
   const [depositType, setDepositType] = useState('Fixed'); // 'Fixed' | 'Percentage'
   const [depositValue, setDepositValue] = useState(''); // number string; if Percentage => percent, if Fixed => amount incl GST
+  const [taxType, setTaxType] = useState('inclusive');
   const gstRate = 0.1;
   const depositPreview = (() => {
     const booking = confirmDialog.booking;
@@ -250,6 +252,7 @@ export default function BookingsHolds() {
     // Reset deposit fields when opening
     setDepositType('Fixed');
     setDepositValue('');
+    setTaxType('inclusive');
     setConfirmDialog({ open: true, booking });
   };
 
@@ -280,7 +283,8 @@ export default function BookingsHolds() {
           depositType: depositType,
           depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
           // Always send computed GST-inclusive amount
-          depositAmount: depositPreview
+          depositAmount: depositPreview,
+          taxType: taxType
         })
       });
 
@@ -679,55 +683,19 @@ export default function BookingsHolds() {
               Are you sure you want to confirm the booking request for {confirmDialog.booking?.customer.name}?
             </DialogDescription>
           </DialogHeader>
-          
-          {confirmDialog.booking && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-green-800 mb-2">Booking Details:</h4>
-              <div className="text-sm space-y-1">
-                <div><strong>Event:</strong> {confirmDialog.booking.purpose}</div>
-                <div><strong>Date:</strong> {format(confirmDialog.booking.start, 'dd MMM yyyy')}</div>
-                <div><strong>Time:</strong> {format(confirmDialog.booking.start, 'HH:mm')} - {format(confirmDialog.booking.end, 'HH:mm')}</div>
-                <div><strong>Resource:</strong> {confirmDialog.booking.resource}</div>
-                <div><strong>Guests:</strong> {confirmDialog.booking.guests}</div>
-                <div><strong>Base Amount:</strong> ${confirmDialog.booking.totalValue?.toLocaleString('en-AU') || '0'}</div>
-                <div className="text-green-800"><strong>Total Value (incl. GST):</strong> ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-          )}
 
-          {/* Deposit selector */}
+          {/* Booking Confirm Form */}
           {confirmDialog.booking && (
-            <div className="mt-4 border rounded-lg p-4">
-              <h4 className="font-semibold mb-3">Deposit</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                <div className="sm:col-span-1">
-                  <label className="text-sm text-gray-600">Type</label>
-                  <Select value={depositType} onValueChange={setDepositType}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Fixed">Fixed</SelectItem>
-                      <SelectItem value="Percentage">Percentage</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="sm:col-span-1">
-                  <label className="text-sm text-gray-600">{depositType === 'Percentage' ? 'Percentage (%)' : 'Amount (GST incl.)'}</label>
-                  <Input 
-                    className="mt-1"
-                    inputMode="decimal"
-                    placeholder={depositType === 'Percentage' ? 'e.g. 50' : 'e.g. 300.00'}
-                    value={depositValue}
-                    onChange={(e) => setDepositValue(e.target.value.replace(/[^0-9.]/g, ''))}
-                  />
-                </div>
-                <div className="sm:col-span-1">
-                  <div className="text-sm text-gray-600">Deposit to charge (incl. GST)</div>
-                  <div className="mt-1 text-lg font-semibold">${depositPreview.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-                  <div className="text-xs text-gray-500">Full amount incl. GST: ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-                </div>
-              </div>
+            <div className="mt-4">
+              <BookingConfirmForm
+                booking={confirmDialog.booking}
+                taxType={taxType}
+                onTaxTypeChange={setTaxType}
+                depositType={depositType}
+                onDepositTypeChange={setDepositType}
+                depositValue={depositValue}
+                onDepositValueChange={setDepositValue}
+              />
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, AlertTriangle, Calendar, Clock, User, DollarSign } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -52,23 +52,6 @@ const ConfirmationModal = ({
 
   const { icon: Icon, color, bgColor, borderColor } = getIconAndColor();
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
   return (
     <AnimatePresence>
       <motion.div
@@ -92,13 +75,13 @@ const ConfirmationModal = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", duration: 0.3 }}
-          className="relative w-full max-w-lg max-h-[90vh] overflow-hidden"
+          className="relative w-full max-w-lg max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <Card className="border-0 shadow-2xl">
-            <CardContent className="p-0">
-              {/* Compact Header */}
-              <div className={`${bgColor} ${borderColor} border-b px-4 py-3 rounded-t-lg`}>
+          <Card className="border-0 shadow-2xl flex flex-col max-h-[90vh]">
+            <CardContent className="p-0 flex flex-col max-h-[90vh]">
+              {/* Compact Header - Fixed at top */}
+              <div className={`${bgColor} ${borderColor} border-b px-4 py-3 rounded-t-lg flex-shrink-0`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className={`p-1.5 rounded-full ${bgColor} ${borderColor} border`}>
@@ -117,63 +100,22 @@ const ConfirmationModal = ({
                 </div>
               </div>
 
-              {/* Compact Content */}
-              <div className="px-4 py-4">
-                <p className="text-gray-700 mb-4 text-sm">{message}</p>
+              {/* Scrollable Content Area */}
+              <div className="px-4 py-3 overflow-y-auto flex-1">
+                <p className="text-gray-700 mb-2 text-sm">{message}</p>
                 
-                {/* Compact Booking Details - Grid Layout */}
-                {bookingDetails && (
-                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Customer & Event */}
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <User className="h-4 w-4 text-gray-500" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{bookingDetails.customerName}</p>
-                            <p className="text-xs text-gray-600">{bookingDetails.purpose}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-gray-500" />
-                          <p className="text-sm text-gray-700">
-                            {formatDate(bookingDetails.start)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Time & Value */}
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <p className="text-sm text-gray-700">
-                            {formatTime(bookingDetails.start)} - {formatTime(bookingDetails.end)}
-                          </p>
-                        </div>
-                        
-                        {bookingDetails.totalValue && (
-                          <div className="flex items-center space-x-2">
-                            <DollarSign className="h-4 w-4 text-gray-500" />
-                            <p className="text-sm font-medium text-gray-900">
-                              ${bookingDetails.totalValue.toLocaleString('en-AU')}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Optional custom content area (e.g., deposit form) */}
-                    {bookingDetails.extraContent && (
-                      <div className="mt-3">
-                        {typeof bookingDetails.extraContent === 'function' 
-                          ? bookingDetails.extraContent() 
-                          : bookingDetails.extraContent}
-                      </div>
-                    )}
+                {/* Optional custom content area (e.g., deposit form) */}
+                {bookingDetails?.extraContent && (
+                  <div>
+                    {typeof bookingDetails.extraContent === 'function' 
+                      ? bookingDetails.extraContent() 
+                      : bookingDetails.extraContent}
                   </div>
                 )}
+              </div>
 
-                {/* Action Buttons */}
+              {/* Action Buttons - Fixed at bottom */}
+              <div className="px-4 py-3 border-t bg-white rounded-b-lg flex-shrink-0">
                 <div className="flex space-x-2 justify-end">
                   <Button
                     variant="outline"

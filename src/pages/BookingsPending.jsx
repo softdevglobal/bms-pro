@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
+import BookingConfirmForm from '../components/bookings/BookingConfirmForm';
 
 // Sample pending bookings
 const samplePendingBookings = [
@@ -97,6 +98,9 @@ export default function BookingsPending() {
   const [declineReason, setDeclineReason] = useState('');
   const [changeMessage, setChangeMessage] = useState('');
   const [holdExpiry, setHoldExpiry] = useState('24h');
+  const [taxType, setTaxType] = useState('inclusive');
+  const [depositType, setDepositType] = useState('Fixed');
+  const [depositValue, setDepositValue] = useState('');
 
   // Debounced search
   useEffect(() => {
@@ -135,6 +139,10 @@ export default function BookingsPending() {
   };
 
   const handleAccept = (booking) => {
+    setTaxType('inclusive');
+    setHoldExpiry('24h');
+    setDepositType('Fixed');
+    setDepositValue('');
     setAcceptDialog({ open: true, booking });
   };
 
@@ -149,9 +157,10 @@ export default function BookingsPending() {
   const confirmAccept = () => {
     const booking = acceptDialog.booking;
     // Create tentative hold
-    console.log(`Accepting ${booking.id} with ${holdExpiry} hold expiry`);
+    console.log(`Accepting ${booking.id} with ${holdExpiry} hold expiry and ${taxType} tax`);
     setAcceptDialog({ open: false, booking: null });
     setHoldExpiry('24h');
+    setTaxType('inclusive');
   };
 
   const confirmDecline = () => {
@@ -472,8 +481,18 @@ export default function BookingsPending() {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Hold Expiry</label>
+            <BookingConfirmForm
+              booking={acceptDialog.booking}
+              taxType={taxType}
+              onTaxTypeChange={setTaxType}
+              depositType={depositType}
+              onDepositTypeChange={setDepositType}
+              depositValue={depositValue}
+              onDepositValueChange={setDepositValue}
+            />
+            
+            <div className="border rounded-lg p-3">
+              <label className="text-sm font-semibold mb-2 block">Hold Expiry</label>
               <Select value={holdExpiry} onValueChange={setHoldExpiry}>
                 <SelectTrigger>
                   <SelectValue />

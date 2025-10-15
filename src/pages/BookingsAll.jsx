@@ -40,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminBookingForm from '../components/bookings/AdminBookingForm';
 import { fetchResources } from '../services/bookingService';
 import { emailCommsAPI } from '../services/emailService';
+import BookingConfirmForm from '../components/bookings/BookingConfirmForm';
 
 // Transform backend booking data to match frontend format
 const transformBookingData = (backendBooking) => {
@@ -148,6 +149,7 @@ export default function BookingsAll() {
   // Deposit confirmation modal states (reuse simple inline dialog in ConfirmationModal payload)
   const [depositType, setDepositType] = useState('Fixed');
   const [depositValue, setDepositValue] = useState('');
+  const [taxType, setTaxType] = useState('inclusive');
   const gstRate = 0.1;
   const bookingTotalInclGst = (b) => Math.round(((Number(b?.totalValue || 0)) * (1 + gstRate)) * 100) / 100;
   const computeDepositInclGst = (b, type, rawVal) => {
@@ -612,6 +614,7 @@ export default function BookingsAll() {
     // Reset deposit inputs and show modal with deposit fields
     setDepositType('Fixed');
     setDepositValue('');
+    setTaxType('inclusive');
     // Show beautiful confirmation modal
     setConfirmationModal({
       isOpen: true,
@@ -626,39 +629,18 @@ export default function BookingsAll() {
         start: booking.start,
         end: booking.end,
         totalValue: booking.totalValue,
+        booking: booking,
         // Extra render data used by ConfirmationModal (it forwards through to its template)
-        extraContent: (
-          <div className="mt-3 border rounded-lg p-3">
-            <div className="text-sm font-semibold mb-2">Deposit</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="text-sm text-gray-600">Type</label>
-                <select
-                  className="mt-1 w-full border rounded px-2 py-2 text-sm"
-                  value={depositType}
-                  onChange={(e) => setDepositType(e.target.value)}
-                >
-                  <option value="Fixed">Fixed</option>
-                  <option value="Percentage">Percentage</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">{depositType === 'Percentage' ? 'Percentage (%)' : 'Amount (GST incl.)'}</label>
-                <input
-                  className="mt-1 w-full border rounded px-2 py-2 text-sm"
-                  inputMode="decimal"
-                  placeholder={depositType === 'Percentage' ? 'e.g. 50' : 'e.g. 300.00'}
-                  value={depositValue}
-                  onChange={(e) => setDepositValue(e.target.value.replace(/[^0-9.]/g, ''))}
-                />
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Deposit to charge (incl. GST)</div>
-                <div className="mt-1 text-base font-semibold">${computeDepositInclGst(booking, depositType, depositValue).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-                <div className="text-xs text-gray-500">Full amount incl. GST: ${bookingTotalInclGst(booking).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-          </div>
+        extraContent: () => (
+          <BookingConfirmForm
+            booking={booking}
+            taxType={taxType}
+            onTaxTypeChange={setTaxType}
+            depositType={depositType}
+            onDepositTypeChange={setDepositType}
+            depositValue={depositValue}
+            onDepositValueChange={setDepositValue}
+          />
         )
       },
       onConfirm: async () => {
@@ -680,7 +662,8 @@ export default function BookingsAll() {
               status: 'confirmed',
               depositType: depositType,
               depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
-              depositAmount: computeDepositInclGst(booking, depositType, depositValue)
+              depositAmount: computeDepositInclGst(booking, depositType, depositValue),
+              taxType: taxType
             })
           });
 
@@ -730,7 +713,31 @@ export default function BookingsAll() {
         }
       }
     });
-  }, [bookings]);
+  }, [bookings, taxType, depositType, depositValue]);
+
+  // Update modal content when tax/deposit states change
+  useEffect(() => {
+    if (confirmationModal.isOpen && confirmationModal.bookingDetails?.booking) {
+      const booking = confirmationModal.bookingDetails.booking;
+      setConfirmationModal(prev => ({
+        ...prev,
+        bookingDetails: {
+          ...prev.bookingDetails,
+          extraContent: () => (
+            <BookingConfirmForm
+              booking={booking}
+              taxType={taxType}
+              onTaxTypeChange={setTaxType}
+              depositType={depositType}
+              onDepositTypeChange={setDepositType}
+              depositValue={depositValue}
+              onDepositValueChange={setDepositValue}
+            />
+          )
+        }
+      }));
+    }
+  }, [taxType, depositType, depositValue]);
 
   // Handle cancel order action
   const handleCancelOrder = useCallback((bookingId) => {
