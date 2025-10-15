@@ -48,7 +48,9 @@ const QuotationForm = ({
     validUntil: '',
     notes: '',
     depositType: 'None',
-    depositValue: 0
+    depositValue: 0,
+    taxType: 'Inclusive',
+    taxRate: 10
   });
   const [errors, setErrors] = useState({});
 
@@ -127,7 +129,9 @@ const QuotationForm = ({
         validUntil: quotation.validUntil ? new Date(quotation.validUntil).toISOString().split('T')[0] : '',
         notes: quotation.notes || '',
         depositType: quotation.depositType || 'None',
-        depositValue: quotation.depositValue || 0
+        depositValue: quotation.depositValue || 0,
+        taxType: quotation.taxType || 'Inclusive',
+        taxRate: quotation.taxRate ?? 10
       });
     } else {
       // Reset form for new quotation
@@ -145,7 +149,9 @@ const QuotationForm = ({
         validUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 14 days from now
         notes: '',
         depositType: 'None',
-        depositValue: 0
+        depositValue: 0,
+        taxType: 'Inclusive',
+        taxRate: 10
       });
     }
     setErrors({});
@@ -482,6 +488,36 @@ const QuotationForm = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+            {/* Tax selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div>
+                <Label htmlFor="taxType">Tax Type</Label>
+                <Select value={formData.taxType} onValueChange={(value) => handleInputChange('taxType', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inclusive or Exclusive" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Inclusive">Inclusive (GST included)</SelectItem>
+                    <SelectItem value="Exclusive">Exclusive (GST added)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                <Input
+                  id="taxRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={formData.taxRate}
+                  onChange={(e) => handleInputChange('taxRate', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="self-end text-xs text-gray-600">
+                {formData.taxType === 'Inclusive' ? 'Totals you enter include GST.' : 'GST will be added on top of totals.'}
+              </div>
+            </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <Label htmlFor="totalAmount">Total Amount (AUD) *</Label>
@@ -496,6 +532,23 @@ const QuotationForm = ({
                       className={errors.totalAmount ? 'border-red-500' : ''}
                       placeholder="0.00"
                     />
+                    {/* GST breakdown helper */}
+                    {formData.totalAmount > 0 && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        {(() => {
+                          const rate = Number(formData.taxRate || 0) / 100;
+                          if (formData.taxType === 'Inclusive') {
+                            const base = formData.totalAmount / (1 + rate);
+                            const gst = formData.totalAmount - base;
+                            return `Incl. GST: Base $${base.toFixed(2)} + GST $${gst.toFixed(2)} = $${formData.totalAmount.toFixed(2)}`;
+                          } else {
+                            const gst = formData.totalAmount * rate;
+                            const total = formData.totalAmount + gst;
+                            return `Excl. GST: Base $${formData.totalAmount.toFixed(2)} + GST $${gst.toFixed(2)} = $${total.toFixed(2)}`;
+                          }
+                        })()}
+                      </div>
+                    )}
                     {formData.totalAmount > 0 && formData.resource && formData.eventDate && formData.startTime && formData.endTime && (
                       <div className="absolute -top-6 right-0 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
                         ✓ Auto-calculated
@@ -602,12 +655,22 @@ const QuotationForm = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-blue-900">Calculated Deposit Amount:</span>
                       <span className="text-lg font-bold text-blue-900">
-                        ${calculateDepositAmount(formData.depositType, formData.depositValue, formData.totalAmount).toFixed(2)} AUD
+                        {(() => {
+                          const rate = Number(formData.taxRate || 0) / 100;
+                          const grossTotal = formData.taxType === 'Inclusive' ? formData.totalAmount : formData.totalAmount * (1 + rate);
+                          const dep = calculateDepositAmount(formData.depositType, formData.depositValue, grossTotal);
+                          return `$${dep.toFixed(2)} AUD`;
+                        })()}
                       </span>
                     </div>
                     {formData.depositType === 'Percentage' && (
                       <p className="text-xs text-blue-700 mt-1">
-                        {formData.depositValue}% of ${formData.totalAmount.toFixed(2)} = ${calculateDepositAmount(formData.depositType, formData.depositValue, formData.totalAmount).toFixed(2)}
+                        {(() => {
+                          const rate = Number(formData.taxRate || 0) / 100;
+                          const grossTotal = formData.taxType === 'Inclusive' ? formData.totalAmount : formData.totalAmount * (1 + rate);
+                          const dep = calculateDepositAmount(formData.depositType, formData.depositValue, grossTotal);
+                          return `${formData.depositValue}% of $${grossTotal.toFixed(2)} = $${dep.toFixed(2)}`;
+                        })()}
                       </p>
                     )}
                   </div>
@@ -622,6 +685,36 @@ const QuotationForm = ({
                   placeholder="Additional notes or terms..."
                   rows={3}
                 />
+              </div>
+              {/* Final Payment Details */}
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-md font-semibold">Final Payment Details</h4>
+                  <span className="text-xs px-2 py-0.5 rounded-full border bg-white text-gray-700">
+                    {formData.taxType === 'Inclusive' ? 'Inclusive (GST included)' : 'Exclusive (GST added)'}
+                  </span>
+                </div>
+                <div className="text-sm space-y-1">
+                  {(() => {
+                    const ratePct = Number(formData.taxRate || 0);
+                    const rate = ratePct / 100;
+                    const isInclusive = formData.taxType === 'Inclusive';
+                    const base = isInclusive ? (formData.totalAmount / (1 + rate)) : formData.totalAmount;
+                    const gst = isInclusive ? (formData.totalAmount - base) : (base * rate);
+                    const grossTotal = isInclusive ? formData.totalAmount : (base + gst);
+                    const depositAmt = formData.depositType === 'None' ? 0 : calculateDepositAmount(formData.depositType, formData.depositValue, grossTotal);
+                    const finalDue = Math.max(0, grossTotal - depositAmt);
+                    return (
+                      <>
+                        <div className="flex justify-between"><span>{isInclusive ? 'Base (excl. GST):' : 'Base (excl. GST):'}</span><span className="font-medium">${base.toFixed(2)} AUD</span></div>
+                        <div className="flex justify-between"><span>{`GST (${ratePct}%)`}:</span><span className="font-medium">${gst.toFixed(2)} AUD</span></div>
+                        <div className="flex justify-between"><span>Total (incl. GST):</span><span className="font-medium">${grossTotal.toFixed(2)} AUD</span></div>
+                        <div className="flex justify-between"><span>Less Deposit:</span><span className="font-medium">-${depositAmt.toFixed(2)} AUD</span></div>
+                        <div className="flex justify-between border-t pt-1 mt-1"><span>Final Amount Due:</span><span className="font-bold text-gray-900">${finalDue.toFixed(2)} AUD</span></div>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </CardContent>
           </Card>
