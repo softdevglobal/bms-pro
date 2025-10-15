@@ -686,7 +686,7 @@ export default function BookingsHolds() {
 
           {/* Booking Confirm Form */}
           {confirmDialog.booking && (
-            <div className="mt-4">
+            <div className="mt-0.5">
               <BookingConfirmForm
                 booking={confirmDialog.booking}
                 taxType={taxType}
