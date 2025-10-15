@@ -178,12 +178,6 @@ const QuotationActions = ({ quotation, onAction }) => {
           Download PDF
         </DropdownMenuItem>
         
-        {quotation.status === 'Draft' && (
-          <DropdownMenuItem onClick={() => onAction('send', quotation.id)}>
-            <Send className="mr-2 h-4 w-4" />
-            Send to Customer
-          </DropdownMenuItem>
-        )}
         
         {quotation.status === 'Sent' && (
           <>
@@ -981,15 +975,7 @@ export default function Quotations() {
                     </Button>
                   </>
                 )}
-                {selectedQuotation.status === 'Draft' && (
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    onClick={() => handleAction('send', selectedQuotation.id)}
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    Send to Customer
-                  </Button>
-                )}
+
                 <Button 
                   variant="outline" 
                   className="w-full"

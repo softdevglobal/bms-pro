@@ -729,10 +729,6 @@ const QuotationForm = ({
             <Save className="h-4 w-4 mr-2" />
             {quotation ? 'Update' : 'Save Draft'}
           </Button>
-          <Button onClick={handleSend} disabled={isLoading} className="w-full sm:w-auto">
-            <Send className="h-4 w-4 mr-2" />
-            {quotation ? 'Resend' : 'Send to Customer'}
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
