@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { format, addHours, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
-import BookingConfirmForm from '../components/bookings/BookingConfirmForm';
+import BookingConfirmDialog from '../components/bookings/BookingConfirmDialog';
 
 // Transform backend booking data to match frontend format
 const transformBookingData = (backendBooking) => {
@@ -673,44 +673,20 @@ export default function BookingsHolds() {
         </div>
       )}
 
-      {/* Confirm Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ open, booking: confirmDialog.booking })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Booking Request</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to confirm the booking request for {confirmDialog.booking?.customer.name}?
-            </DialogDescription>
-          </DialogHeader>
 
-          {/* Booking Confirm Form */}
-          {confirmDialog.booking && (
-            <div className="mt-0.5">
-              <BookingConfirmForm
-                booking={confirmDialog.booking}
-                taxType={taxType}
-                onTaxTypeChange={setTaxType}
-                depositType={depositType}
-                onDepositTypeChange={setDepositType}
-                depositValue={depositValue}
-                onDepositValueChange={setDepositValue}
-              />
-            </div>
-          )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, booking: null })}>
-              Cancel
-            </Button>
-            <Button 
-              className="bg-green-600 hover:bg-green-700"
-              onClick={confirmBooking}
-            >
-              Confirm Booking
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BookingConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, booking: confirmDialog.booking })}
+        booking={confirmDialog.booking}
+        taxType={taxType}
+        onTaxTypeChange={setTaxType}
+        depositType={depositType}
+        onDepositTypeChange={setDepositType}
+        depositValue={depositValue}
+        onDepositValueChange={setDepositValue}
+        onConfirm={confirmBooking}
+      />
 
       {/* Cancel Dialog */}
       <Dialog open={cancelDialog.open} onOpenChange={(open) => setCancelDialog({ open, booking: cancelDialog.booking })}>

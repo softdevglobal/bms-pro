@@ -40,7 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminBookingForm from '../components/bookings/AdminBookingForm';
 import { fetchResources } from '../services/bookingService';
 import { emailCommsAPI } from '../services/emailService';
-import BookingConfirmForm from '../components/bookings/BookingConfirmForm';
+import BookingConfirmDialog from '../components/bookings/BookingConfirmDialog';
 
 // Transform backend booking data to match frontend format
 const transformBookingData = (backendBooking) => {
@@ -615,34 +615,15 @@ export default function BookingsAll() {
     setDepositType('Fixed');
     setDepositValue('');
     setTaxType('inclusive');
-    // Show beautiful confirmation modal
+    // Open dialog via local UI component (replaces inline ConfirmationModal usage)
     setConfirmationModal({
       isOpen: true,
       type: 'confirm',
       title: 'Confirm Booking',
-      message: `Are you sure you want to confirm the booking for ${booking.customer.name}?`,
-      confirmText: 'Confirm Order',
+      message: '',
+      confirmText: 'Confirm',
       cancelText: 'Cancel',
-      bookingDetails: {
-        customerName: booking.customer.name,
-        purpose: booking.purpose,
-        start: booking.start,
-        end: booking.end,
-        totalValue: booking.totalValue,
-        booking: booking,
-        // Extra render data used by ConfirmationModal (it forwards through to its template)
-        extraContent: () => (
-          <BookingConfirmForm
-            booking={booking}
-            taxType={taxType}
-            onTaxTypeChange={setTaxType}
-            depositType={depositType}
-            onDepositTypeChange={setDepositType}
-            depositValue={depositValue}
-            onDepositValueChange={setDepositValue}
-          />
-        )
-      },
+      bookingDetails: { booking },
       onConfirm: async () => {
         try {
           const token = localStorage.getItem('token');
@@ -716,28 +697,7 @@ export default function BookingsAll() {
   }, [bookings, taxType, depositType, depositValue]);
 
   // Update modal content when tax/deposit states change
-  useEffect(() => {
-    if (confirmationModal.isOpen && confirmationModal.bookingDetails?.booking) {
-      const booking = confirmationModal.bookingDetails.booking;
-      setConfirmationModal(prev => ({
-        ...prev,
-        bookingDetails: {
-          ...prev.bookingDetails,
-          extraContent: () => (
-            <BookingConfirmForm
-              booking={booking}
-              taxType={taxType}
-              onTaxTypeChange={setTaxType}
-              depositType={depositType}
-              onDepositTypeChange={setDepositType}
-              depositValue={depositValue}
-              onDepositValueChange={setDepositValue}
-            />
-          )
-        }
-      }));
-    }
-  }, [taxType, depositType, depositValue]);
+  // No longer need to recompose extraContent; the dialog reads state directly
 
   // Handle cancel order action
   const handleCancelOrder = useCallback((bookingId) => {
@@ -1245,18 +1205,34 @@ export default function BookingsAll() {
           onApplyFilter={setFilters}
         />
 
-        {/* Beautiful Confirmation Modal */}
-        <ConfirmationModal
-          isOpen={confirmationModal.isOpen}
-          onClose={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
+        {/* Confirm Booking Dialog (uses BookingConfirmDialog) */}
+        <BookingConfirmDialog
+          open={confirmationModal.isOpen && confirmationModal.type === 'confirm'}
+          onOpenChange={(open) => setConfirmationModal(prev => ({ ...prev, isOpen: open }))}
+          booking={confirmationModal.bookingDetails?.booking}
+          taxType={taxType}
+          onTaxTypeChange={setTaxType}
+          depositType={depositType}
+          onDepositTypeChange={setDepositType}
+          depositValue={depositValue}
+          onDepositValueChange={setDepositValue}
           onConfirm={confirmationModal.onConfirm}
-          title={confirmationModal.title}
-          message={confirmationModal.message}
-          confirmText={confirmationModal.confirmText}
-          cancelText={confirmationModal.cancelText}
-          type={confirmationModal.type}
-          bookingDetails={confirmationModal.bookingDetails}
         />
+
+        {/* Other modal cases (e.g., cancel) continue to use ConfirmationModal */}
+        {confirmationModal.type !== 'confirm' && (
+          <ConfirmationModal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
+            onConfirm={confirmationModal.onConfirm}
+            title={confirmationModal.title}
+            message={confirmationModal.message}
+            confirmText={confirmationModal.confirmText}
+            cancelText={confirmationModal.cancelText}
+            type={confirmationModal.type}
+            bookingDetails={confirmationModal.bookingDetails}
+          />
+        )}
 
         {/* Toast Notifications */}
         <ToastNotification
