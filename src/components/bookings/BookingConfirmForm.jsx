@@ -18,14 +18,21 @@ const BookingConfirmForm = ({
   onDepositValueChange,
   gstRate = 0.1
 }) => {
-  // Calculate deposit preview
-  const computeDepositInclGst = () => {
+  // Base amounts from Booking Details
+  const baseExclGst = booking ? Number(booking.totalValue || 0) : 0;
+  const gstAmount = Math.round((baseExclGst * gstRate) * 100) / 100;
+  const amountInclGst = Math.round((baseExclGst + gstAmount) * 100) / 100;
+
+  // Calculate deposit preview following selected tax mode
+  const computeDeposit = () => {
     const val = Number(depositValue);
     if (!booking || Number.isNaN(val) || val <= 0) return 0;
-    const baseInclGst = Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100;
+    const selectedBase = taxType === 'inclusive'
+      ? Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100
+      : Math.round((Number(booking.totalValue || 0)) * 100) / 100;
     if (depositType === 'Percentage') {
       const pct = Math.max(0, Math.min(100, val));
-      return Math.round((baseInclGst * (pct / 100)) * 100) / 100;
+      return Math.round((selectedBase * (pct / 100)) * 100) / 100;
     }
     return Math.round(val * 100) / 100;
   };
@@ -34,7 +41,7 @@ const BookingConfirmForm = ({
     ? Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100
     : 0;
 
-  const depositPreview = computeDepositInclGst();
+  const depositPreview = computeDeposit();
 
   return (
     <div className="space-y-2.5">
@@ -66,6 +73,20 @@ const BookingConfirmForm = ({
             onChange={onTaxTypeChange} 
           />
         </div>
+        {/* Amount preview based on selected tax type */}
+        <div className="mt-2 text-sm">
+          {taxType === 'inclusive' ? (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Amount (incl. GST)</span>
+              <span className="font-semibold">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Amount (excl. GST)</span>
+              <span className="font-semibold">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Deposit Configuration */}
@@ -89,7 +110,9 @@ const BookingConfirmForm = ({
           {/* Value Input */}
           <div>
             <label className="text-sm text-gray-600">
-              {depositType === 'Percentage' ? 'Percentage (%)' : 'Amount (GST incl.)'}
+              {depositType === 'Percentage' 
+                ? 'Percentage (%)' 
+                : `Amount (${taxType === 'inclusive' ? 'GST incl.' : 'GST excl.'})`}
             </label>
             <Input
               className="mt-1"
@@ -102,12 +125,14 @@ const BookingConfirmForm = ({
 
           {/* Preview */}
           <div>
-            <div className="text-sm text-gray-600">Deposit to charge (incl. GST)</div>
+            <div className="text-sm text-gray-600">Deposit to charge ({taxType === 'inclusive' ? 'incl. GST' : 'excl. GST'})</div>
             <div className="mt-1 text-lg font-semibold">
               ${depositPreview.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
             </div>
             <div className="text-xs text-gray-500">
-              Full amount incl. GST: ${bookingTotalInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
+              {taxType === 'inclusive' ? 'Full amount incl. GST' : 'Full amount excl. GST'}: {
+                (taxType === 'inclusive' ? amountInclGst : baseExclGst).toLocaleString('en-AU', { minimumFractionDigits: 2 })
+              }
             </div>
           </div>
         </div>
