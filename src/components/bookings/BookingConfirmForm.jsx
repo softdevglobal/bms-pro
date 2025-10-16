@@ -137,6 +137,67 @@ const BookingConfirmForm = ({
           </div>
         </div>
       </div>
+
+      {/* Payment Breakdown - Compact */}
+      <div className="border rounded-lg p-2.5 bg-blue-50 border-blue-200">
+        <div className="text-sm font-semibold mb-2 text-blue-800">💰 Payment Summary</div>
+        <div className="space-y-1">
+          {/* GST Breakdown - Compact */}
+          {taxType === 'inclusive' ? (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-600">GST Inclusive:</span>
+                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">GST (10%):</span>
+                <span className="font-medium">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Net (excl. GST):</span>
+                <span className="font-medium">${(baseExclGst - gstAmount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-600">GST Exclusive:</span>
+                <span className="font-medium">${(baseExclGst / (1 + gstRate)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">GST (10%):</span>
+                <span className="font-medium">${((baseExclGst / (1 + gstRate)) * gstRate).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total (incl. GST):</span>
+                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Payment Details - Compact */}
+          <div className="border-t border-blue-300 pt-2 mt-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-blue-700 font-medium">Deposit:</span>
+                <span className="font-semibold text-blue-800">${depositPreview.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Balance Due:</span>
+                <span className="font-semibold text-green-700">${(amountInclGst - depositPreview).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+            
+            {/* Final Total - Compact */}
+            <div className="border-t border-blue-300 pt-2 mt-2">
+              <div className="flex justify-between text-sm font-bold">
+                <span className="text-blue-800">Total Value:</span>
+                <span className="text-blue-900">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

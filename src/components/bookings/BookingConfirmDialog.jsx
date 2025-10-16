@@ -21,27 +21,29 @@ const BookingConfirmDialog = ({
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Confirm Booking</DialogTitle>
           <DialogDescription>
             {booking ? `Are you sure you want to confirm the booking for ${booking.customer?.name || 'this customer'}?` : ''}
           </DialogDescription>
         </DialogHeader>
 
-        {booking && (
-          <BookingConfirmForm
-            booking={booking}
-            taxType={taxType}
-            onTaxTypeChange={onTaxTypeChange}
-            depositType={depositType}
-            onDepositTypeChange={onDepositTypeChange}
-            depositValue={depositValue}
-            onDepositValueChange={onDepositValueChange}
-          />
-        )}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {booking && (
+            <BookingConfirmForm
+              booking={booking}
+              taxType={taxType}
+              onTaxTypeChange={onTaxTypeChange}
+              depositType={depositType}
+              onDepositTypeChange={onDepositTypeChange}
+              depositValue={depositValue}
+              onDepositValueChange={onDepositValueChange}
+            />
+          )}
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
