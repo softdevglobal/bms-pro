@@ -105,6 +105,7 @@ const transformBookingData = (backendBooking) => {
     depositValue: backendBooking.depositValue,
     depositAmount: backendBooking.depositAmount,
     quotationId: backendBooking.quotationId,
+    bookingCode: backendBooking.bookingCode,
   };
 };
 

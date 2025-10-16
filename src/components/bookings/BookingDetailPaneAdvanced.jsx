@@ -60,6 +60,13 @@ const PaymentStatus = ({ label, amount, status }) => {
 };
 
 const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept }) => {
+  // Debug: Log booking data to see what's available
+  console.log('BookingDetailPaneAdvanced - booking data:', {
+    id: booking?.id,
+    bookingCode: booking?.bookingCode,
+    customerName: booking?.customerName
+  });
+
   const paneVariants = {
     hidden: { x: '100%', opacity: 0 },
     visible: { x: '0%', opacity: 1 },
@@ -146,23 +153,25 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
         {/* Key Details */}
         <div className="border rounded-xl p-4 bg-white/50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Booking ID */}
+            {/* Booking Reference */}
             <div className="rounded-lg border bg-gradient-to-br from-gray-50 to-white p-3">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Hash className="h-4 w-4" />
-                  <span>Booking ID</span>
+                  <span>Booking Reference</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-6 px-2 text-xs"
-                  onClick={() => navigator.clipboard.writeText(booking.id)}
+                  onClick={() => navigator.clipboard.writeText(booking.bookingCode)}
                 >
                   Copy
                 </Button>
               </div>
-              <div className="text-sm font-mono break-all text-gray-800">{booking.id}</div>
+              <div className="text-sm font-mono break-all text-gray-800">
+                {booking.bookingCode || 'No booking code available'}
+              </div>
             </div>
 
             {/* Date */}

@@ -30,6 +30,7 @@ export const transformBookingToCalendarEvent = (backendBooking) => {
     additionalDescription: backendBooking.additionalDescription,
     bookingSource: backendBooking.bookingSource,
     quotationId: backendBooking.quotationId,
+    bookingCode: backendBooking.bookingCode,
     // Deposit information
     depositType: backendBooking.depositType || null,
     depositValue: backendBooking.depositValue || null,
