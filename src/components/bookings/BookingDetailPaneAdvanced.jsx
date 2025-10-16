@@ -247,21 +247,32 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
         <div className="border rounded-lg p-4">
             <h4 className="font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4" />Payment Breakdown</h4>
             <div className="space-y-2">
-                {/* Price Breakdown with GST */}
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-gray-900">${((booking.calculatedPrice || booking.totalValue || 0) / 1.1).toFixed(2)}</span>
+                {/* Price Breakdown - Show GST details only for confirmed/completed bookings */}
+                {booking.status === 'pending' || booking.status === 'PENDING_REVIEW' ? (
+                  // For pending bookings, show only base price
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Base Price:</span>
+                      <span className="font-semibold text-gray-900">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">GST (10%):</span>
-                    <span className="text-gray-900">${(((booking.calculatedPrice || booking.totalValue || 0) / 1.1) * 0.1).toFixed(2)}</span>
+                ) : (
+                  // For confirmed/completed bookings, show full GST breakdown
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="text-gray-900">${((booking.calculatedPrice || booking.totalValue || 0) / 1.1).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">GST (10%):</span>
+                      <span className="text-gray-900">${(((booking.calculatedPrice || booking.totalValue || 0) / 1.1) * 0.1).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                      <span className="font-semibold text-gray-700">Total (incl. GST):</span>
+                      <span className="font-semibold text-green-600 text-base">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                    <span className="font-semibold text-gray-700">Total (incl. GST):</span>
-                    <span className="font-semibold text-green-600 text-base">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
-                  </div>
-                </div>
+                )}
 
                 {/* Deposit and Balance Information */}
                 {booking.depositType && booking.depositType !== 'None' && booking.depositAmount > 0 ? (
