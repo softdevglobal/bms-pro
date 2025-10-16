@@ -18,28 +18,28 @@ const BookingConfirmForm = ({
   onDepositValueChange,
   gstRate = 0.1
 }) => {
-  // Base amounts from Booking Details
-  const baseExclGst = booking ? Number(booking.totalValue || 0) : 0;
-  const gstAmount = Math.round((baseExclGst * gstRate) * 100) / 100;
-  const amountInclGst = Math.round((baseExclGst + gstAmount) * 100) / 100;
+  // Base amounts from Booking Details - booking.totalValue is the base price
+  const basePrice = booking ? Number(booking.totalValue || 0) : 0;
+  
+  // Calculate amounts based on tax type selection
+  const amountInclGst = taxType === 'inclusive' 
+    ? basePrice  // If inclusive, base price already includes GST
+    : Math.round((basePrice * (1 + gstRate)) * 100) / 100; // If exclusive, add GST
+  
+  const baseExclGst = Math.round((amountInclGst / (1 + gstRate)) * 100) / 100;
+  const gstAmount = Math.round((amountInclGst - baseExclGst) * 100) / 100;
 
   // Calculate deposit preview following selected tax mode
   const computeDeposit = () => {
     const val = Number(depositValue);
     if (!booking || Number.isNaN(val) || val <= 0) return 0;
-    const selectedBase = taxType === 'inclusive'
-      ? Math.round((Number(booking.totalValue || 0)) * 100) / 100
-      : Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100;
+    const selectedBase = amountInclGst; // Always use the final amount including GST
     if (depositType === 'Percentage') {
       const pct = Math.max(0, Math.min(100, val));
       return Math.round((selectedBase * (pct / 100)) * 100) / 100;
     }
     return Math.round(val * 100) / 100;
   };
-
-  const bookingTotalInclGst = booking
-    ? Math.round((Number(booking.totalValue || 0) * (1 + gstRate)) * 100) / 100
-    : 0;
 
   const depositPreview = computeDeposit();
 
@@ -78,7 +78,7 @@ const BookingConfirmForm = ({
           {taxType === 'inclusive' ? (
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Amount (incl. GST)</span>
-              <span className="font-semibold">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+              <span className="font-semibold">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
             </div>
           ) : (
             <div className="flex items-center justify-between">
@@ -131,7 +131,7 @@ const BookingConfirmForm = ({
             </div>
             <div className="text-xs text-gray-500">
               {taxType === 'inclusive' ? 'Full amount incl. GST' : 'Full amount excl. GST'}: {
-                (taxType === 'inclusive' ? baseExclGst : amountInclGst).toLocaleString('en-AU', { minimumFractionDigits: 2 })
+                amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })
               }
             </div>
           </div>
@@ -147,7 +147,7 @@ const BookingConfirmForm = ({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-600">GST Inclusive:</span>
-                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">GST (10%):</span>
@@ -155,22 +155,22 @@ const BookingConfirmForm = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Net (excl. GST):</span>
-                <span className="font-medium">${(baseExclGst - gstAmount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-600">GST Exclusive:</span>
-                <span className="font-medium">${(baseExclGst / (1 + gstRate)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">GST (10%):</span>
-                <span className="font-medium">${((baseExclGst / (1 + gstRate)) * gstRate).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total (incl. GST):</span>
-                <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           )}

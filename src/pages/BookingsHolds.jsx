@@ -68,6 +68,7 @@ const transformBookingData = (backendBooking) => {
     customerAvatar: backendBooking.customerAvatar,
     bookingSource: backendBooking.bookingSource,
     priceDetails: backendBooking.priceDetails,
+    bookingCode: backendBooking.bookingCode,
   };
 };
 
@@ -568,8 +569,8 @@ export default function BookingsHolds() {
 
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Booking ID:</span>
-                  <span className="font-medium">{selectedBooking.id}</span>
+                  <span className="text-gray-600">Booking Reference:</span>
+                  <span className="font-medium">{selectedBooking.bookingCode || 'No booking code available'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Resource:</span>
