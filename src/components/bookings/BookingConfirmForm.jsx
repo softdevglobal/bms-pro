@@ -67,7 +67,7 @@ const BookingConfirmForm = ({
       {/* Tax Calculation Toggle */}
       <div className="border rounded-lg p-2.5">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold">Tax Calculation</div>
+          <div className="text-sm font-semibold">Tax Calculation <span className="ml-2 text-[10px] text-gray-500">GST rate: {(gstRate * 100).toFixed(2)}%</span></div>
           <TaxToggle 
             value={taxType} 
             onChange={onTaxTypeChange} 
@@ -150,7 +150,7 @@ const BookingConfirmForm = ({
                 <span className="font-medium">${amountInclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">GST (10%):</span>
+                <span className="text-gray-600">GST ({(gstRate*100).toFixed(2)}%):</span>
                 <span className="font-medium">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
@@ -165,7 +165,7 @@ const BookingConfirmForm = ({
                 <span className="font-medium">${baseExclGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">GST (10%):</span>
+                <span className="text-gray-600">GST ({(gstRate*100).toFixed(2)}%):</span>
                 <span className="font-medium">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">

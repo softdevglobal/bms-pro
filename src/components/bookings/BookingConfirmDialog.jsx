@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import BookingConfirmForm from './BookingConfirmForm';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * BookingConfirmDialog
@@ -19,6 +20,9 @@ const BookingConfirmDialog = ({
   onDepositValueChange,
   onConfirm
 }) => {
+  const { userSettings } = useAuth();
+  const gstRatePct = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+  const gstRate = gstRatePct / 100;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
@@ -26,6 +30,7 @@ const BookingConfirmDialog = ({
           <DialogTitle>Confirm Booking</DialogTitle>
           <DialogDescription>
             {booking ? `Are you sure you want to confirm the booking for ${booking.customer?.name || 'this customer'}?` : ''}
+            <span className="ml-2 text-[10px] text-gray-500">GST rate: {gstRatePct}%</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -39,6 +44,7 @@ const BookingConfirmDialog = ({
               onDepositTypeChange={onDepositTypeChange}
               depositValue={depositValue}
               onDepositValueChange={onDepositValueChange}
+              gstRate={gstRate}
             />
           )}
         </div>

@@ -31,7 +31,7 @@ const QuotationForm = ({
   onSend,
   isLoading = false 
 }) => {
-  const { user, token } = useAuth();
+  const { user, token, userSettings } = useAuth();
   const [resources, setResources] = useState([]);
   const [pricingData, setPricingData] = useState([]);
   const [formData, setFormData] = useState({
@@ -131,7 +131,7 @@ const QuotationForm = ({
         depositType: quotation.depositType || 'None',
         depositValue: quotation.depositValue || 0,
         taxType: quotation.taxType || 'Inclusive',
-        taxRate: quotation.taxRate ?? 10
+        taxRate: Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : (quotation.taxRate ?? 10)
       });
     } else {
       // Reset form for new quotation
@@ -151,7 +151,7 @@ const QuotationForm = ({
         depositType: 'None',
         depositValue: 0,
         taxType: 'Inclusive',
-        taxRate: 10
+        taxRate: Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10
       });
     }
     setErrors({});
@@ -488,7 +488,7 @@ const QuotationForm = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-            {/* Tax selection */}
+            {/* Tax settings: type selectable, rate fixed from DB */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <Label htmlFor="taxType">Tax Type</Label>
@@ -502,17 +502,9 @@ const QuotationForm = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="taxRate">Tax Rate (%)</Label>
-                <Input
-                  id="taxRate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={formData.taxRate}
-                  onChange={(e) => handleInputChange('taxRate', parseFloat(e.target.value) || 0)}
-                />
+              <div className="text-sm">
+                <Label>Tax Rate</Label>
+                <div className="mt-2 text-gray-800">{Number(formData.taxRate).toFixed(2)}%</div>
               </div>
               <div className="self-end text-xs text-gray-600">
                 {formData.taxType === 'Inclusive' ? 'Totals you enter include GST.' : 'GST will be added on top of totals.'}
@@ -605,6 +597,24 @@ const QuotationForm = ({
                     value={formData.validUntil}
                     onChange={(e) => handleInputChange('validUntil', e.target.value)}
                   />
+                  {/* Final price summary in the free space to the right */}
+                  {formData.totalAmount > 0 && (
+                    <div className="mt-4 p-3 rounded-lg border bg-emerald-50 text-right">
+                      {(() => {
+                        const rate = Number(formData.taxRate || 0) / 100;
+                        const isInclusive = formData.taxType === 'Inclusive';
+                        const grossTotal = isInclusive
+                          ? Number(formData.totalAmount)
+                          : Math.round((Number(formData.totalAmount) * (1 + rate)) * 100) / 100;
+                        return (
+                          <>
+                            <div className="text-[11px] text-emerald-700 mb-1">Final Price (incl. GST)</div>
+                            <div className="text-lg font-bold text-emerald-900">${grossTotal.toFixed(2)} AUD</div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
               

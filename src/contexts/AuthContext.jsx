@@ -21,7 +21,9 @@ export const AuthProvider = ({ children }) => {
     timezone: 'Australia/Sydney',
     dateFormat: 'DD/MM/YYYY',
     timeFormat: '12h',
-    currency: 'AUD'
+    currency: 'AUD',
+    taxType: 'Inclusive',
+    taxRate: 10
   });
 
   const fetchUserProfile = async (token) => {
@@ -133,7 +135,9 @@ export const AuthProvider = ({ children }) => {
           timezone: 'Australia/Sydney',
           dateFormat: 'DD/MM/YYYY',
           timeFormat: '12h',
-          currency: 'AUD'
+          currency: 'AUD',
+          taxType: 'Inclusive',
+          taxRate: 10
         });
       }
       setLoading(false);
@@ -187,7 +191,9 @@ export const AuthProvider = ({ children }) => {
       timezone: 'Australia/Sydney',
       dateFormat: 'DD/MM/YYYY',
       timeFormat: '12h',
-      currency: 'AUD'
+      currency: 'AUD',
+      taxType: 'Inclusive',
+      taxRate: 10
     });
     // Redirect to login page and prevent back navigation
     window.location.replace('/login');
