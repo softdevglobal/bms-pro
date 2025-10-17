@@ -19,6 +19,7 @@ import BookingsCompleted from "./BookingsCompleted";
 import BookingsCancelled from "./BookingsCancelled";
 
 import Invoices from "./Invoices";
+import Deposits from "./Deposits";
 import Quotations from "./Quotations";
 import Login from "./Login";
 
@@ -91,6 +92,8 @@ const PAGES = {
     BookingsCancelled: BookingsCancelled,
     
     Invoices: Invoices,
+    
+    Deposits: Deposits,
     
     Quotations: Quotations,
     
@@ -246,11 +249,26 @@ function PagesContent() {
                 </ProtectedRoute>
             } />
 
+            <Route path="/Deposits" element={
+                <ProtectedRoute requiredPermission={true}>
+                    <Layout currentPageName={currentPage}>
+                        <Deposits />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+
             {/* Lowercase alias for case-insensitive access */}
             <Route path="/invoices" element={
                 <ProtectedRoute requiredPermission={true}>
                     <Layout currentPageName={currentPage}>
                         <Invoices />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+            <Route path="/deposits" element={
+                <ProtectedRoute requiredPermission={true}>
+                    <Layout currentPageName={currentPage}>
+                        <Deposits />
                     </Layout>
                 </ProtectedRoute>
             } />

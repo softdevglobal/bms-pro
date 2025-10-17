@@ -10,6 +10,7 @@ import {
   Users,
   FileText,
   DollarSign,
+  PiggyBank,
   Settings,
   HelpCircle,
   Shield,
@@ -44,6 +45,11 @@ const navigationItems = [
   { title: "Completed", url: createPageUrl("BookingsCompleted") },
   { title: "Cancelled", url: createPageUrl("BookingsCancelled") }]
 
+},
+{
+  title: "Deposits",
+  url: createPageUrl("Deposits"),
+  icon: PiggyBank
 },
 {
   title: "Invoices & Payments",
