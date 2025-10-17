@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, CheckCircle2, XCircle, RefreshCw, Filter, Calendar, DollarSign, User, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchQuotationsForCurrentUser } from '@/services/quotationService';
 
 export default function Deposits() {
   const { user } = useAuth();
@@ -14,6 +15,9 @@ export default function Deposits() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [quotes, setQuotes] = useState([]);
+  const [quotesLoading, setQuotesLoading] = useState(true);
+  const [quotesError, setQuotesError] = useState(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | paid | unpaid
   const formatCurrency = (n) => `$${Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`;
@@ -48,6 +52,31 @@ export default function Deposits() {
   }, [user?.id]);
 
   useEffect(() => { if (user?.id) fetchBookings(); }, [user?.id, fetchBookings]);
+
+  // Load quotations for deposits tab
+  useEffect(() => {
+    const loadQuotes = async () => {
+      if (!user?.id) return;
+      try {
+        setQuotesError(null);
+        setQuotesLoading(true);
+        const token = localStorage.getItem('token');
+        const list = await fetchQuotationsForCurrentUser(token);
+        // Only show quotations that have a non-zero deposit configured
+        const withDeposits = (list || []).filter(q => {
+          const p = q.payment_details || {};
+          const dep = Number(p.deposit_amount ?? q.depositAmount ?? 0);
+          return dep > 0;
+        });
+        setQuotes(withDeposits);
+      } catch (e) {
+        setQuotesError(e.message);
+      } finally {
+        setQuotesLoading(false);
+      }
+    };
+    if (user?.id) loadQuotes();
+  }, [user?.id]);
 
   const filtered = useMemo(() => {
     let data = bookings.slice();
@@ -86,6 +115,24 @@ export default function Deposits() {
     }, { count: 0, total: 0, paidCount: 0, paidTotal: 0, unpaidCount: 0, unpaidTotal: 0 });
     return totals;
   }, [bookings]);
+
+  const quotesFiltered = useMemo(() => {
+    let data = quotes.slice();
+    if (statusFilter !== 'all') {
+      const wantPaid = statusFilter === 'paid';
+      data = data.filter(q => Boolean(q.payment_details?.deposit_paid) === wantPaid);
+    }
+    if (query) {
+      const qy = query.toLowerCase();
+      data = data.filter(q => (
+        (q.id || '').toLowerCase().includes(qy) ||
+        (q.customerName || '').toLowerCase().includes(qy) ||
+        (q.customerEmail || '').toLowerCase().includes(qy) ||
+        (q.resourceName || q.resource || '').toLowerCase().includes(qy)
+      ));
+    }
+    return data.sort((a, b) => (new Date(b.updatedAt || 0)) - (new Date(a.updatedAt || 0)));
+  }, [quotes, query, statusFilter]);
 
   const toggleDepositPaid = useCallback(async (booking) => {
     try {
@@ -312,7 +359,88 @@ export default function Deposits() {
         </TabsContent>
 
         <TabsContent value="quotations" className="mt-3">
-          <div className="text-slate-500 text-sm">No quotation deposits yet.</div>
+          {quotesLoading ? (
+            <div className="flex items-center justify-center h-48 text-slate-500">
+              <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading quotation deposits...
+            </div>
+          ) : quotesError ? (
+            <div className="text-red-600">{quotesError}</div>
+          ) : quotesFiltered.length === 0 ? (
+            <div className="text-slate-500">No quotation deposits yet.</div>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <Table className="text-xs md:text-sm [&>tbody>tr>td]:py-1.5 [&>tbody>tr>td]:px-2 [&>thead>tr>th]:py-2">
+                <TableHeader className="sticky top-0 bg-white/90 backdrop-blur z-10">
+                  <TableRow className="bg-slate-50/60">
+                    <TableHead>
+                      <div className="flex items-center gap-1"><DollarSign className="h-3.5 w-3.5" /> Quotation</div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> Customer</div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Event / Date</div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /> Resource</div>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <div className="flex items-center gap-1 justify-end"><DollarSign className="h-3.5 w-3.5" /> Total</div>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <div className="flex items-center gap-1 justify-end"><DollarSign className="h-3.5 w-3.5 text-blue-500" /> Deposit</div>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <div className="flex items-center gap-1 justify-end"><DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Final Due</div>
+                    </TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quotesFiltered.map(q => {
+                    const p = q.payment_details || {};
+                    const total = Number(p.total_amount ?? q.totalInclGst ?? q.totalAmount ?? 0);
+                    const dep = Number(p.deposit_amount ?? q.depositAmount ?? 0);
+                    const due = Number(p.final_due ?? q.finalAmount ?? Math.max(0, total - dep));
+                    const paid = Boolean(p.deposit_paid);
+                    return (
+                      <TableRow key={q.id} className="hover:bg-slate-50/70 hover:shadow-sm odd:bg-slate-50/30 transition-colors">
+                        <TableCell>
+                          <div className="font-semibold">
+                            <span className="inline-block bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-xs">{q.id}</span>
+                          </div>
+                          <div className="text-xs text-slate-500">Created {q.createdAt ? new Date(q.createdAt).toLocaleDateString() : ''}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium flex items-center gap-1"><User className="h-3.5 w-3.5 text-slate-400" />{q.customerName}</div>
+                          <div className="text-xs text-slate-500">{q.customerEmail}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{q.eventType || 'Event'}</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1"><Calendar className="h-3 w-3" /> {q.eventDate} {q.startTime && q.endTime ? `• ${q.startTime}-${q.endTime}` : ''}</div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] border border-slate-200">
+                            <Building2 className="h-3.5 w-3.5 text-slate-500" />{q.resourceName || q.resource}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right"><span className="inline-block font-mono bg-white border border-slate-200 rounded-md px-2 py-0.5">${total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span></TableCell>
+                        <TableCell className="text-right"><span className="inline-block font-mono bg-white border border-slate-200 rounded-md px-2 py-0.5">${dep.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span></TableCell>
+                        <TableCell className="text-right"><span className="inline-block font-mono bg-white border border-slate-200 rounded-md px-2 py-0.5">${due.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span></TableCell>
+                        <TableCell>
+                          {paid ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5" />Deposit Paid</Badge>
+                          ) : (
+                            <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">{q.status || 'Draft'}</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
