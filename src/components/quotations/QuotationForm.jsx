@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Calculator, Save, Send } from 'lucide-react';
+import { Calculator, Save, Send, Loader2 } from 'lucide-react';
 import { fetchResources, fetchPricing, calculateResourceRate, createQuotation, updateQuotation } from '@/services/quotationService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -53,6 +53,7 @@ const QuotationForm = ({
     taxRate: 10
   });
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
 
   // Load resources and pricing when component mounts
   useEffect(() => {
@@ -251,6 +252,7 @@ const QuotationForm = ({
   const handleSave = async () => {
     if (validateForm()) {
       try {
+        setSaving(true);
         // Build unified payment details block to mirror booking confirm
         const ratePct = Number(formData.taxRate || 0);
         const rate = ratePct / 100;
@@ -288,6 +290,8 @@ const QuotationForm = ({
       } catch (error) {
         console.error('Error saving quotation:', error);
         // Handle error - could show a toast or error message
+      } finally {
+        setSaving(false);
       }
     }
   };
@@ -295,6 +299,7 @@ const QuotationForm = ({
   const handleSend = async () => {
     if (validateForm()) {
       try {
+        setSaving(true);
         const ratePct = Number(formData.taxRate || 0);
         const rate = ratePct / 100;
         const isInclusive = formData.taxType === 'Inclusive';
@@ -329,6 +334,8 @@ const QuotationForm = ({
       } catch (error) {
         console.error('Error sending quotation:', error);
         // Handle error - could show a toast or error message
+      } finally {
+        setSaving(false);
       }
     }
   };
@@ -781,12 +788,21 @@ const QuotationForm = ({
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <Button variant="outline" onClick={handleClose} disabled={isLoading} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={handleClose} disabled={isLoading || saving} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isLoading} className="w-full sm:w-auto">
-            <Save className="h-4 w-4 mr-2" />
-            {quotation ? 'Update' : 'Save Draft'}
+          <Button onClick={handleSave} disabled={isLoading || saving} className="w-full sm:w-auto">
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {quotation ? 'Updating...' : 'Saving...'}
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                {quotation ? 'Update' : 'Save Draft'}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
