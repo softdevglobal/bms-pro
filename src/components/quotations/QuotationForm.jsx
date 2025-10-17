@@ -251,12 +251,38 @@ const QuotationForm = ({
   const handleSave = async () => {
     if (validateForm()) {
       try {
+        // Build unified payment details block to mirror booking confirm
+        const ratePct = Number(formData.taxRate || 0);
+        const rate = ratePct / 100;
+        const isInclusive = formData.taxType === 'Inclusive';
+        const rawTotal = Number(formData.totalAmount || 0);
+        const subtotal = isInclusive ? (rawTotal / (1 + rate)) : rawTotal;
+        const gst = isInclusive ? (rawTotal - subtotal) : (subtotal * rate);
+        const totalInclGst = isInclusive ? rawTotal : (subtotal + gst);
+        const depositAmount = calculateDepositAmount(formData.depositType, formData.depositValue, totalInclGst);
+        const finalDue = Math.max(0, totalInclGst - depositAmount);
+
+        const paymentDetails = {
+          total_amount: Math.round(totalInclGst * 100) / 100,
+          final_due: Math.round(finalDue * 100) / 100,
+          deposit_amount: Math.round(depositAmount * 100) / 100,
+          tax: {
+            tax_type: formData.taxType,
+            tax_amount: Math.round(gst * 100) / 100,
+            gst: Math.round(gst * 100) / 100
+          },
+          deposit_paid: false,
+          paid_at: null
+        };
+
+        const payload = { ...formData, payment_details: paymentDetails };
+
         if (quotation) {
           // Update existing quotation
-          await updateQuotation(quotation.id, formData, token);
+          await updateQuotation(quotation.id, payload, token);
         } else {
           // Create new quotation
-          await createQuotation(formData, token);
+          await createQuotation(payload, token);
         }
         onSave(formData);
       } catch (error) {
@@ -269,12 +295,35 @@ const QuotationForm = ({
   const handleSend = async () => {
     if (validateForm()) {
       try {
+        const ratePct = Number(formData.taxRate || 0);
+        const rate = ratePct / 100;
+        const isInclusive = formData.taxType === 'Inclusive';
+        const rawTotal = Number(formData.totalAmount || 0);
+        const subtotal = isInclusive ? (rawTotal / (1 + rate)) : rawTotal;
+        const gst = isInclusive ? (rawTotal - subtotal) : (subtotal * rate);
+        const totalInclGst = isInclusive ? rawTotal : (subtotal + gst);
+        const depositAmount = calculateDepositAmount(formData.depositType, formData.depositValue, totalInclGst);
+        const finalDue = Math.max(0, totalInclGst - depositAmount);
+        const paymentDetails = {
+          total_amount: Math.round(totalInclGst * 100) / 100,
+          final_due: Math.round(finalDue * 100) / 100,
+          deposit_amount: Math.round(depositAmount * 100) / 100,
+          tax: {
+            tax_type: formData.taxType,
+            tax_amount: Math.round(gst * 100) / 100,
+            gst: Math.round(gst * 100) / 100
+          },
+          deposit_paid: false,
+          paid_at: null
+        };
+        const payload = { ...formData, status: 'Sent', payment_details: paymentDetails };
+
         if (quotation) {
           // Update existing quotation and send
-          await updateQuotation(quotation.id, { ...formData, status: 'Sent' }, token);
+          await updateQuotation(quotation.id, payload, token);
         } else {
           // Create new quotation and send
-          await createQuotation({ ...formData, status: 'Sent' }, token);
+          await createQuotation(payload, token);
         }
         onSend(formData);
       } catch (error) {
