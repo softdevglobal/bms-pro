@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import BookingConfirmForm from './BookingConfirmForm';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 /**
  * BookingConfirmDialog
@@ -18,13 +19,14 @@ const BookingConfirmDialog = ({
   onDepositTypeChange,
   depositValue,
   onDepositValueChange,
-  onConfirm
+  onConfirm,
+  loading = false
 }) => {
   const { userSettings } = useAuth();
   const gstRatePct = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
   const gstRate = gstRatePct / 100;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={loading ? () => {} : onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Confirm Booking</DialogTitle>
@@ -50,11 +52,11 @@ const BookingConfirmDialog = ({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button className="bg-green-600 hover:bg-green-700" onClick={onConfirm} disabled={!booking}>
-            Confirm Order
+          <Button className="bg-green-600 hover:bg-green-700" onClick={onConfirm} disabled={!booking || loading}>
+            {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Confirming...</>) : 'Confirm Order'}
           </Button>
         </DialogFooter>
       </DialogContent>

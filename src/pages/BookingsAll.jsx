@@ -127,6 +127,7 @@ export default function BookingsAll() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [sendingPayLink, setSendingPayLink] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     type: 'confirm',
@@ -625,77 +626,73 @@ export default function BookingsAll() {
       confirmText: 'Confirm',
       cancelText: 'Cancel',
       bookingDetails: { booking },
-      onConfirm: async () => {
-        try {
-          const token = localStorage.getItem('token');
-          if (!token) {
-            throw new Error('No authentication token found');
-          }
-
-          console.log('Confirming order for booking:', bookingId);
-          
-          const response = await fetch(`/api/bookings/${bookingId}/status`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              status: 'confirmed',
-              depositType: depositType,
-              depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
-              depositAmount: computeDepositInclGst(booking, depositType, depositValue),
-              taxType: taxType
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-            throw new Error(`Failed to confirm booking: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
-          }
-
-          const result = await response.json();
-          console.log('Booking confirmed successfully:', result);
-
-          // Update local state optimistically
-          setBookings(prevBookings => 
-            prevBookings.map(booking => 
-              booking.id === bookingId 
-                ? { ...booking, status: 'confirmed' }
-                : booking
-            )
-          );
-
-          // Update filtered bookings as well
-          setFilteredBookings(prevFilteredBookings => 
-            prevFilteredBookings.map(booking => 
-              booking.id === bookingId 
-                ? { ...booking, status: 'confirmed' }
-                : booking
-            )
-          );
-
-          // Close modal and show success
-          setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-          setToast({
-            isVisible: true,
-            type: 'success',
-            title: 'Booking Confirmed!',
-            message: `${booking.customer.name}'s booking is now confirmed.`
-          });
-          
-        } catch (err) {
-          console.error('Error confirming booking:', err);
-          setToast({
-            isVisible: true,
-            type: 'error',
-            title: 'Error Confirming Booking',
-            message: err.message
-          });
-        }
-      }
+      onConfirm: null
     });
   }, [bookings, taxType, depositType, depositValue]);
+
+  // Always-read handler that uses latest state values when user clicks Confirm
+  const handleConfirmSubmit = useCallback(async () => {
+    const booking = confirmationModal.bookingDetails?.booking;
+    if (!booking) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      setConfirming(true);
+
+      const basePrice = Number(booking.totalValue || 0);
+      const totalInclGst = taxType === 'inclusive'
+        ? Math.round(basePrice * 100) / 100
+        : Math.round((basePrice * (1 + gstRate)) * 100) / 100;
+      const baseExclGst = Math.round((totalInclGst / (1 + gstRate)) * 100) / 100;
+      const gstAmount = Math.round((totalInclGst - baseExclGst) * 100) / 100;
+
+      let depositAmt = 0;
+      if (depositType === 'Percentage') {
+        const pct = Math.max(0, Math.min(100, Number(depositValue)));
+        depositAmt = Math.round((totalInclGst * (pct / 100)) * 100) / 100;
+      } else if (depositType === 'Fixed') {
+        depositAmt = Math.round(Number(depositValue || 0) * 100) / 100;
+      }
+
+      const payment_details = {
+        total_amount: totalInclGst,
+        final_due: Math.round((totalInclGst - depositAmt) * 100) / 100,
+        deposit_amount: depositAmt,
+        tax: {
+          tax_type: taxType,
+          tax_amount: gstAmount,
+          gst: gstAmount
+        }
+      };
+
+      const response = await fetch(`/api/bookings/${booking.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'confirmed', payment_details })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to confirm booking: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+      }
+
+      // Optimistically update UI
+      setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: 'confirmed' } : b));
+      setFilteredBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: 'confirmed' } : b));
+
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setToast({ isVisible: true, type: 'success', title: 'Booking Confirmed!', message: `${booking.customer.name}'s booking is now confirmed.` });
+    } catch (err) {
+      console.error('Error confirming booking:', err);
+      setToast({ isVisible: true, type: 'error', title: 'Error Confirming Booking', message: err.message });
+    } finally {
+      setConfirming(false);
+    }
+  }, [confirmationModal.bookingDetails, taxType, depositType, depositValue]);
 
   // Update modal content when tax/deposit states change
   // No longer need to recompose extraContent; the dialog reads state directly
@@ -1217,7 +1214,8 @@ export default function BookingsAll() {
           onDepositTypeChange={setDepositType}
           depositValue={depositValue}
           onDepositValueChange={setDepositValue}
-          onConfirm={confirmationModal.onConfirm}
+          onConfirm={handleConfirmSubmit}
+          loading={confirming}
         />
 
         {/* Other modal cases (e.g., cancel) continue to use ConfirmationModal */}

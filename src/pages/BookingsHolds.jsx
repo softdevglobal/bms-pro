@@ -85,6 +85,7 @@ export default function BookingsHolds() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [sortConfig, setSortConfig] = useState({ column: 'start', direction: 'desc' });
+  const [confirming, setConfirming] = useState(false);
   
   // Dialog states
   const [confirmDialog, setConfirmDialog] = useState({ open: false, booking: null });
@@ -271,6 +272,34 @@ export default function BookingsHolds() {
       }
 
       console.log('Confirming booking:', booking.id);
+      setConfirming(true);
+
+      // Build unified payment_details for Pending -> Confirmed
+      const basePrice = Number(booking.totalValue || 0);
+      const totalInclGst = taxType === 'inclusive'
+        ? Math.round(basePrice * 100) / 100
+        : Math.round((basePrice * (1 + gstRate)) * 100) / 100;
+      const baseExclGst = Math.round((totalInclGst / (1 + gstRate)) * 100) / 100;
+      const gstAmount = Math.round((totalInclGst - baseExclGst) * 100) / 100;
+
+      let depositAmt = 0;
+      if (depositType === 'Percentage') {
+        const pct = Math.max(0, Math.min(100, Number(depositValue)));
+        depositAmt = Math.round((totalInclGst * (pct / 100)) * 100) / 100;
+      } else if (depositType === 'Fixed') {
+        depositAmt = Math.round(Number(depositValue || 0) * 100) / 100;
+      }
+
+      const payment_details = {
+        total_amount: totalInclGst,
+        final_due: Math.round((totalInclGst - depositAmt) * 100) / 100,
+        deposit_amount: depositAmt,
+        tax: {
+          tax_type: taxType,
+          tax_amount: gstAmount,
+          gst: gstAmount
+        }
+      };
       
       const response = await fetch(`/api/bookings/${booking.id}/status`, {
         method: 'PUT',
@@ -280,12 +309,7 @@ export default function BookingsHolds() {
         },
         body: JSON.stringify({ 
           status: 'confirmed',
-          // Persist deposit metadata on booking so emails and invoices can use it
-          depositType: depositType,
-          depositValue: depositType === 'Percentage' ? Number(depositValue) : undefined,
-          // Always send computed GST-inclusive amount
-          depositAmount: depositPreview,
-          taxType: taxType
+          payment_details
         })
       });
 
@@ -318,6 +342,8 @@ export default function BookingsHolds() {
         title: 'Error Confirming Booking',
         message: err.message
       });
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -687,6 +713,7 @@ export default function BookingsHolds() {
         depositValue={depositValue}
         onDepositValueChange={setDepositValue}
         onConfirm={confirmBooking}
+        loading={confirming}
       />
 
       {/* Cancel Dialog */}
