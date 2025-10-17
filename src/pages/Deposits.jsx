@@ -178,17 +178,17 @@ export default function Deposits() {
       </div>
 
       <Tabs defaultValue="bookings" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white/50 backdrop-blur border-0 shadow-lg rounded-xl p-1">
+        <TabsList className="grid w-full grid-cols-2 bg-gray-100/80 backdrop-blur border border-gray-200 rounded-xl p-1">
           <TabsTrigger 
             value="bookings" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md"
+            className="flex items-center gap-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
           >
             <ReceiptIcon />
             Web & Admin Bookings
           </TabsTrigger>
           <TabsTrigger 
             value="quotations" 
-            className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md"
+            className="flex items-center gap-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
           >
             <DollarSign className="h-4 w-4" />
             Quotations
