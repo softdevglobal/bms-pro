@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, CheckCircle2, XCircle, RefreshCw, Filter, Calendar, DollarSign, User, Building2 } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, RefreshCw, Filter, Calendar, Clock, DollarSign, User, Building2, MoreVertical, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchQuotationsForCurrentUser, updateQuotation } from '@/services/quotationService';
 
@@ -22,6 +24,8 @@ export default function Deposits() {
   const [activeTab, setActiveTab] = useState('bookings');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | paid | unpaid
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsPayload, setDetailsPayload] = useState(null); // { type: 'booking'|'quotation', item }
   const formatCurrency = (n) => `$${Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`;
 
   const fetchBookings = useCallback(async (isRefresh = false) => {
@@ -155,6 +159,16 @@ export default function Deposits() {
     } finally {
       setQuoteUpdating(null);
     }
+  }, []);
+
+  const openBookingDetails = useCallback((booking) => {
+    setDetailsPayload({ type: 'booking', item: booking });
+    setDetailsOpen(true);
+  }, []);
+
+  const openQuotationDetails = useCallback((quotation) => {
+    setDetailsPayload({ type: 'quotation', item: quotation });
+    setDetailsOpen(true);
   }, []);
 
   const toggleDepositPaid = useCallback(async (booking) => {
@@ -316,7 +330,7 @@ export default function Deposits() {
                       <TableRow key={b.id} className="hover:bg-slate-50/70 hover:shadow-sm odd:bg-slate-50/30 transition-colors">
                         <TableCell>
                           <div className="font-semibold">
-                            <span className="inline-block bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-xs">
+                            <span className="inline-block bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-xs whitespace-nowrap">
                               {b.bookingCode || b.id}
                             </span>
                           </div>
@@ -329,8 +343,13 @@ export default function Deposits() {
                         <TableCell>
                           <div>{b.eventType || 'Event'}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" /> {b.bookingDate} {b.startTime && b.endTime ? `• ${b.startTime}-${b.endTime}` : ''}
+                            <Calendar className="h-3 w-3" /> {b.bookingDate}
                           </div>
+                          {b.startTime && b.endTime && (
+                            <div className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                              <Clock className="h-3 w-3" /> {b.startTime} - {b.endTime}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] border border-slate-200">
@@ -364,17 +383,29 @@ export default function Deposits() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            className={`${paid ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-green-600 hover:bg-green-700'} h-7 px-2 py-0.5 text-xs rounded-md`}
-                            onClick={() => toggleDepositPaid(b)}
-                          >
-                            {paid ? (
-                              <><XCircle className="h-3.5 w-3.5 mr-1" />Mark Unpaid</>
-                            ) : (
-                              <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Paid</>
-                            )}
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              className={`${paid ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-green-600 hover:bg-green-700'} h-7 px-2 py-0.5 text-xs rounded-md`}
+                              onClick={() => toggleDepositPaid(b)}
+                            >
+                              {paid ? (
+                                <><XCircle className="h-3.5 w-3.5 mr-1" />Mark Unpaid</>
+                              ) : (
+                                <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Paid</>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openBookingDetails(b)}
+                              title="Open details"
+                              aria-label="Open booking details"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -435,7 +466,7 @@ export default function Deposits() {
                       <TableRow key={q.id} className="hover:bg-slate-50/70 hover:shadow-sm odd:bg-slate-50/30 transition-colors">
                         <TableCell>
                           <div className="font-semibold">
-                            <span className="inline-block bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-xs">{q.id}</span>
+                            <span className="inline-block bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-xs whitespace-nowrap">{q.id}</span>
                           </div>
                           <div className="text-xs text-slate-500">Created {q.createdAt ? new Date(q.createdAt).toLocaleDateString() : ''}</div>
                         </TableCell>
@@ -445,7 +476,14 @@ export default function Deposits() {
                         </TableCell>
                         <TableCell>
                           <div>{q.eventType || 'Event'}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1"><Calendar className="h-3 w-3" /> {q.eventDate} {q.startTime && q.endTime ? `• ${q.startTime}-${q.endTime}` : ''}</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> {q.eventDate}
+                          </div>
+                          {q.startTime && q.endTime && (
+                            <div className="text-xs text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                              <Clock className="h-3 w-3" /> {q.startTime} - {q.endTime}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] border border-slate-200">
@@ -463,18 +501,30 @@ export default function Deposits() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            className={`${paid ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-green-600 hover:bg-green-700'} h-7 px-2 py-0.5 text-xs rounded-md`}
-                            disabled={quoteUpdating === q.id}
-                            onClick={() => toggleQuotationDepositPaid(q)}
-                          >
-                            {paid ? (
-                              <><XCircle className="h-3.5 w-3.5 mr-1" />Mark Unpaid</>
-                            ) : (
-                              <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Paid</>
-                            )}
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              className={`${paid ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-green-600 hover:bg-green-700'} h-7 px-2 py-0.5 text-xs rounded-md`}
+                              disabled={quoteUpdating === q.id}
+                              onClick={() => toggleQuotationDepositPaid(q)}
+                            >
+                              {paid ? (
+                                <><XCircle className="h-3.5 w-3.5 mr-1" />Mark Unpaid</>
+                              ) : (
+                                <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Paid</>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openQuotationDetails(q)}
+                              title="Open details"
+                              aria-label="Open quotation details"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -485,6 +535,132 @@ export default function Deposits() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Details Side Menu */}
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent side="right" className="sm:max-w-md p-0">
+          {/* Creative header */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-indigo-600 text-white p-5">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
+            <div className="relative">
+              <SheetClose className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/20 text-white hover:bg-white/30" aria-label="Close details">
+                <X className="h-4 w-4" />
+              </SheetClose>
+              <div className="text-xs/5 opacity-90">{detailsPayload?.type === 'booking' ? 'Booking' : detailsPayload?.type === 'quotation' ? 'Quotation' : 'Deposit'}</div>
+              <div className="mt-1 text-lg font-semibold tracking-tight">
+                {detailsPayload?.type === 'booking' ? (detailsPayload?.item?.bookingCode || detailsPayload?.item?.id) : (detailsPayload?.item?.id || '')}
+              </div>
+              <div className="mt-1 text-[11px] opacity-90">
+                {detailsPayload?.type === 'booking' ? 'Deposit details' : 'Quotation deposit details'}
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          {detailsPayload && (
+            <div className="p-5 space-y-5">
+              {/* Summary tiles */}
+              {(() => {
+                const isBooking = detailsPayload.type === 'booking';
+                const item = detailsPayload.item || {};
+                const p = (item.payment_details || {});
+                const total = Number(p.total_amount ?? item.totalInclGst ?? item.totalAmount ?? 0);
+                const dep = Number(p.deposit_amount ?? item.depositAmount ?? 0);
+                const due = Number(p.final_due ?? item.finalAmount ?? Math.max(0, total - dep));
+                const paid = Boolean(p.deposit_paid);
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border bg-white p-3">
+                      <div className="text-[10px] text-slate-500">Total</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(total)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <div className="text-[10px] text-slate-500">Deposit</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(dep)}</div>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <div className="text-[10px] text-slate-500">Final Due</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(due)}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <Separator />
+
+              {detailsPayload.type === 'booking' && (() => {
+                const b = detailsPayload.item;
+                const p = b?.payment_details || {};
+                const total = Number(p.total_amount || 0);
+                const dep = Number(p.deposit_amount || 0);
+                const due = Number(p.final_due || Math.max(0, total - dep));
+                const paid = Boolean(p.deposit_paid);
+                return (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-xs text-slate-500">Booking</div>
+                      <div className="font-semibold text-slate-900 text-sm">{b?.bookingCode || b?.id}</div>
+                      <div className="text-[11px] text-slate-500">ID: {b?.id}</div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="flex items-center gap-2 text-sm"><User className="h-4 w-4 text-slate-500" />{b?.customerName}<span className="text-slate-400">•</span><span className="text-slate-500">{b?.customerEmail}</span></div>
+                      <div className="flex items-center gap-2 text-sm"><Calendar className="h-4 w-4 text-slate-500" />{b?.eventType || 'Event'} — {b?.bookingDate}{b?.startTime && b?.endTime ? ` • ${b.startTime}-${b.endTime}` : ''}</div>
+                      <div className="flex items-center gap-2 text-sm"><Building2 className="h-4 w-4 text-slate-500" />{b?.hallName || b?.selectedHall}</div>
+                    </div>
+                    <div className="border rounded-lg p-3 bg-slate-50 space-y-2">
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4" />Total</span><span className="font-mono">{formatCurrency(total)}</span></div>
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4 text-blue-600" />Deposit</span><span className="font-mono">{formatCurrency(dep)}</span></div>
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4 text-emerald-600" />Final Due</span><span className="font-mono">{formatCurrency(due)}</span></div>
+                      <div className="pt-2">
+                        {paid ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5" />Paid</Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-200"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />Unpaid</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {detailsPayload.type === 'quotation' && (() => {
+                const q = detailsPayload.item;
+                const p = q?.payment_details || {};
+                const total = Number(p.total_amount ?? q?.totalInclGst ?? q?.totalAmount ?? 0);
+                const dep = Number(p.deposit_amount ?? q?.depositAmount ?? 0);
+                const due = Number(p.final_due ?? q?.finalAmount ?? Math.max(0, total - dep));
+                const paid = Boolean(p.deposit_paid);
+                return (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-xs text-slate-500">Quotation</div>
+                      <div className="font-semibold text-slate-900 text-sm">{q?.id}</div>
+                      <div className="text-[11px] text-slate-500">Created {q?.createdAt ? new Date(q.createdAt).toLocaleDateString() : ''}</div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="flex items-center gap-2 text-sm"><User className="h-4 w-4 text-slate-500" />{q?.customerName}<span className="text-slate-400">•</span><span className="text-slate-500">{q?.customerEmail}</span></div>
+                      <div className="flex items-center gap-2 text-sm"><Calendar className="h-4 w-4 text-slate-500" />{q?.eventType || 'Event'} — {q?.eventDate}{q?.startTime && q?.endTime ? ` • ${q.startTime}-${q.endTime}` : ''}</div>
+                      <div className="flex items-center gap-2 text-sm"><Building2 className="h-4 w-4 text-slate-500" />{q?.resourceName || q?.resource}</div>
+                    </div>
+                    <div className="border rounded-lg p-3 bg-slate-50 space-y-2">
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4" />Total</span><span className="font-mono">{formatCurrency(total)}</span></div>
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4 text-blue-600" />Deposit</span><span className="font-mono">{formatCurrency(dep)}</span></div>
+                      <div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 text-slate-600"><DollarSign className="h-4 w-4 text-emerald-600" />Final Due</span><span className="font-mono">{formatCurrency(due)}</span></div>
+                      <div className="pt-2">
+                        {paid ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-200"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5" />Deposit Paid</Badge>
+                        ) : (
+                          <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">{q?.status || 'Draft'}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
