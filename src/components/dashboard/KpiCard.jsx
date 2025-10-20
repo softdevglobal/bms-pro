@@ -21,13 +21,32 @@ const KpiCard = ({ title, value, delta, deltaType = 'increase', sparklineData, n
       ? 'text-red-600 bg-red-100'
       : 'text-gray-600 bg-gray-100';
 
+  const renderValue = (rawValue) => {
+    if (rawValue === null || rawValue === undefined) return '';
+    const str = String(rawValue);
+    const dotIndex = str.lastIndexOf('.');
+    if (dotIndex > -1 && dotIndex < str.length - 1) {
+      const main = str.slice(0, dotIndex);
+      const decimals = str.slice(dotIndex); // includes the dot
+      return (
+        <>
+          <span className="whitespace-nowrap">{main}</span>
+          <span className="block text-sm sm:text-base font-semibold whitespace-nowrap">{decimals}</span>
+        </>
+      );
+    }
+    return str;
+  };
+
   return (
     <Card variant="transparent" className="rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{value}</div>
+        <div className="font-bold text-gray-900 leading-tight [font-size:clamp(1.25rem,3.2vw,1.875rem)]" title={String(value)}>
+          {renderValue(value)}
+        </div>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

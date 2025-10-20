@@ -524,7 +524,7 @@ export default function Dashboard() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 relative z-20">
         {/* Row A: KPI Cards */}
-        <section className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 auto-rows-fr">
+        <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 auto-rows-fr">
           <KpiCard 
             title="Occupancy Today" 
             value={data.kpis.occupancyToday.value} 
