@@ -70,6 +70,7 @@ export default function SettingsPayments() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [stripeError, setStripeError] = useState('');
+  const [isEditingStripe, setIsEditingStripe] = useState(true);
 
   // Load existing Stripe Account ID via backend API (handles sub-users automatically)
   useEffect(() => {
@@ -86,7 +87,12 @@ export default function SettingsPayments() {
         if (resp.ok) {
           const data = await resp.json();
           if (data?.stripeAccountId !== undefined) {
-            setSettings(prev => ({ ...prev, stripeAccountId: data.stripeAccountId || '' }));
+            setSettings(prev => ({
+              ...prev,
+              stripeAccountId: data.stripeAccountId || '',
+              stripeEnabled: Boolean(data.stripeAccountId) || prev.stripeEnabled
+            }));
+            setIsEditingStripe(!Boolean(data.stripeAccountId));
           }
         }
       } catch (err) {
@@ -121,6 +127,12 @@ export default function SettingsPayments() {
         const err = await resp.json().catch(() => ({ message: 'Failed to save' }));
         throw new Error(err.message || 'Failed to save Stripe Account ID');
       }
+      // Ensure Stripe remains enabled and visible after saving a valid ID
+      setSettings(prev => ({
+        ...prev,
+        stripeEnabled: Boolean(value) || prev.stripeEnabled
+      }));
+      setIsEditingStripe(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
@@ -202,12 +214,13 @@ export default function SettingsPayments() {
                   </div>
                   <Switch
                     id="stripe-enabled"
-                    checked={settings.stripeEnabled}
+                    checked={settings.stripeEnabled || !!settings.stripeAccountId}
+                    disabled={!!settings.stripeAccountId}
                     onCheckedChange={(checked) => updateSetting('stripeEnabled', checked)}
                   />
                 </div>
                 
-                {settings.stripeEnabled && (
+                {(settings.stripeEnabled || !!settings.stripeAccountId) && (
                   <div className="space-y-3 pl-6 border-l-2 border-purple-200">
                     <div>
                       <Label htmlFor="stripe-account-id">Stripe Account ID</Label>
@@ -219,6 +232,8 @@ export default function SettingsPayments() {
                           setStripeError(val && !val.startsWith('acct_') ? 'Stripe Account ID must start with "acct_"' : '');
                           updateSetting('stripeAccountId', e.target.value);
                         }}
+                        placeholder="acct_1ABCDEF..."
+                        disabled={!isEditingStripe}
                       />
                       {stripeError && (
                         <p className="text-red-600 text-sm mt-1">{stripeError}</p>
@@ -227,9 +242,15 @@ export default function SettingsPayments() {
                         <Badge variant="secondary" className="mt-2">Looks valid</Badge>
                       )}
                       <div className="mt-3">
-                        <Button onClick={handleSave} disabled={loading || !!stripeError}>
-                          {loading ? 'Saving...' : 'Save Stripe'}
-                        </Button>
+                        {isEditingStripe ? (
+                          <Button onClick={handleSave} disabled={loading || !!stripeError}>
+                            {loading ? 'Saving...' : 'Save Stripe'}
+                          </Button>
+                        ) : (
+                          <Button variant="outline" onClick={() => setIsEditingStripe(true)}>
+                            Edit Stripe ID
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
