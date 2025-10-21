@@ -7,6 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+// We'll use backend API for saving/fetching Stripe Account ID to respect security rules
+import { db, auth } from '../../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   CreditCard,
   Banknote,
@@ -26,11 +30,11 @@ import {
 import { motion } from 'framer-motion';
 
 export default function SettingsPayments() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState({
     // Payment Methods
     stripeEnabled: false,
-    stripePublishableKey: '',
-    stripeSecretKey: '',
+    stripeAccountId: '',
     bankTransferEnabled: true,
     cashEnabled: true,
     chequeEnabled: false,
@@ -65,18 +69,58 @@ export default function SettingsPayments() {
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [stripeError, setStripeError] = useState('');
 
-  // Load settings on component mount
+  // Load existing Stripe Account ID via backend API (handles sub-users automatically)
   useEffect(() => {
-    // In a real app, this would load from the backend
-    // For now, we'll use the default settings
-  }, []);
+    const loadStripeAccountId = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/stripe-account', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.stripeAccountId !== undefined) {
+            setSettings(prev => ({ ...prev, stripeAccountId: data.stripeAccountId || '' }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load Stripe Account ID:', err);
+      }
+    };
+
+    loadStripeAccountId();
+  }, [user]);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      // In a real app, this would save to the backend
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const value = (settings.stripeAccountId || '').trim();
+      if (value && !value.startsWith('acct_')) {
+        setStripeError('Stripe Account ID must start with "acct_"');
+        return;
+      }
+
+      // Save via backend API (handles sub-users and security)
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+      const resp = await fetch('/api/users/stripe-account', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ stripeAccountId: value || '' })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'Failed to save' }));
+        throw new Error(err.message || 'Failed to save Stripe Account ID');
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
@@ -166,24 +210,27 @@ export default function SettingsPayments() {
                 {settings.stripeEnabled && (
                   <div className="space-y-3 pl-6 border-l-2 border-purple-200">
                     <div>
-                      <Label htmlFor="stripe-publishable-key">Publishable Key</Label>
+                      <Label htmlFor="stripe-account-id">Stripe Account ID</Label>
                       <Input
-                        id="stripe-publishable-key"
-                        type="password"
-                        value={settings.stripePublishableKey}
-                        onChange={(e) => updateSetting('stripePublishableKey', e.target.value)}
-                        placeholder="pk_test_..."
+                        id="stripe-account-id"
+                        value={settings.stripeAccountId}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setStripeError(val && !val.startsWith('acct_') ? 'Stripe Account ID must start with "acct_"' : '');
+                          updateSetting('stripeAccountId', e.target.value);
+                        }}
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="stripe-secret-key">Secret Key</Label>
-                      <Input
-                        id="stripe-secret-key"
-                        type="password"
-                        value={settings.stripeSecretKey}
-                        onChange={(e) => updateSetting('stripeSecretKey', e.target.value)}
-                        placeholder="sk_test_..."
-                      />
+                      {stripeError && (
+                        <p className="text-red-600 text-sm mt-1">{stripeError}</p>
+                      )}
+                      {!stripeError && settings.stripeAccountId && settings.stripeAccountId.startsWith('acct_') && (
+                        <Badge variant="secondary" className="mt-2">Looks valid</Badge>
+                      )}
+                      <div className="mt-3">
+                        <Button onClick={handleSave} disabled={loading || !!stripeError}>
+                          {loading ? 'Saving...' : 'Save Stripe'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
