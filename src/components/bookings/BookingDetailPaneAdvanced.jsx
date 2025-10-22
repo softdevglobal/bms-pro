@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -60,6 +62,7 @@ const PaymentStatus = ({ label, amount, status }) => {
 };
 
 const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept }) => {
+  const navigate = useNavigate();
   // Debug: Log booking data to see what's available
   console.log('BookingDetailPaneAdvanced - booking data:', {
     id: booking?.id,
@@ -385,7 +388,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => navigate(createPageUrl('Invoices'))}>
               <FileText className="mr-2 h-4 w-4" /> Invoice
             </Button>
             <Button variant="outline" className="w-full" onClick={() => onEdit && onEdit(booking)}>
