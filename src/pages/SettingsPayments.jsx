@@ -64,13 +64,24 @@ export default function SettingsPayments() {
     // Notifications
     notifyOnPayment: true,
     notifyOnOverdue: true,
-    autoSendInvoices: false
+    autoSendInvoices: false,
+    // Bank Transfer Details
+    bankDetails: {
+      accountName: '',
+      bankName: '',
+      bsb: '',
+      accountNumber: '',
+      referenceNote: ''
+    }
   });
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [stripeError, setStripeError] = useState('');
   const [isEditingStripe, setIsEditingStripe] = useState(true);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankSaved, setBankSaved] = useState(false);
+  const [bankError, setBankError] = useState('');
 
   // Load existing Stripe Account ID via backend API (handles sub-users automatically)
   useEffect(() => {
@@ -100,7 +111,38 @@ export default function SettingsPayments() {
       }
     };
 
+    const loadBankDetails = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/bank-details', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.bankDetails) {
+            setSettings(prev => ({
+              ...prev,
+              bankDetails: {
+                accountName: data.bankDetails.accountName || '',
+                bankName: data.bankDetails.bankName || '',
+                bsb: data.bankDetails.bsb || '',
+                accountNumber: data.bankDetails.accountNumber || '',
+                referenceNote: data.bankDetails.referenceNote || ''
+              }
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load bank details:', err);
+      }
+    };
+
     loadStripeAccountId();
+    loadBankDetails();
   }, [user]);
 
   const handleSave = async () => {
@@ -144,6 +186,57 @@ export default function SettingsPayments() {
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const formatBsb = (value) => {
+    const digits = (value || '').replace(/[^0-9]/g, '').slice(0, 6);
+    if (digits.length <= 3) return digits;
+    return `${digits.slice(0,3)}-${digits.slice(3)}`;
+  };
+
+  const handleSaveBankDetails = async () => {
+    setBankError('');
+    setBankSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+      const { accountName, bankName, bsb, accountNumber, referenceNote } = settings.bankDetails || {};
+
+      if (bsb && !/^\d{3}-?\d{3}$/.test(bsb)) {
+        setBankError('BSB must be 6 digits (e.g. 123-456)');
+        return;
+      }
+      if (accountNumber && !/^\d{4,12}$/.test(accountNumber)) {
+        setBankError('Account number must be 4-12 digits');
+        return;
+      }
+
+      const resp = await fetch('/api/users/bank-details', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountName: (accountName || '').trim(),
+          bankName: (bankName || '').trim(),
+          bsb: (bsb || '').trim(),
+          accountNumber: (accountNumber || '').trim(),
+          referenceNote: (referenceNote || '').trim()
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'Failed to save bank details' }));
+        throw new Error(err.message || 'Failed to save bank details');
+      }
+      setBankSaved(true);
+      setTimeout(() => setBankSaved(false), 3000);
+    } catch (e) {
+      console.error('Error saving bank details:', e);
+      setBankError(e.message || 'Failed to save bank details');
+    } finally {
+      setBankSaving(false);
+    }
   };
 
   return (
@@ -274,6 +367,71 @@ export default function SettingsPayments() {
                     onCheckedChange={(checked) => updateSetting('bankTransferEnabled', checked)}
                   />
                 </div>
+
+                {settings.bankTransferEnabled && (
+                  <div className="space-y-3 pl-6 border-l-2 border-green-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="bank-account-name">Account Name</Label>
+                        <Input
+                          id="bank-account-name"
+                          value={settings.bankDetails.accountName}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, accountName: e.target.value } }))}
+                          placeholder="e.g. Cranbourne Public Hall"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-bank-name">Bank Name</Label>
+                        <Input
+                          id="bank-bank-name"
+                          value={settings.bankDetails.bankName}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, bankName: e.target.value } }))}
+                          placeholder="e.g. Commonwealth Bank"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-bsb">BSB</Label>
+                        <Input
+                          id="bank-bsb"
+                          value={settings.bankDetails.bsb}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, bsb: formatBsb(e.target.value) } }))}
+                          placeholder="123-456"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-account-number">Account Number</Label>
+                        <Input
+                          id="bank-account-number"
+                          value={settings.bankDetails.accountNumber}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, accountNumber: e.target.value.replace(/[^0-9]/g, '') } }))}
+                          placeholder="12345678"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="bank-reference">Reference Note (shown on invoices)</Label>
+                        <Input
+                          id="bank-reference"
+                          value={settings.bankDetails.referenceNote}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, referenceNote: e.target.value } }))}
+                          placeholder="Use Invoice Number as reference"
+                        />
+                      </div>
+                    </div>
+                    {bankError && (
+                      <p className="text-red-600 text-sm">{bankError}</p>
+                    )}
+                    {bankSaved && (
+                      <p className="text-green-700 text-sm">Bank details saved.</p>
+                    )}
+                    <div>
+                      <Button onClick={handleSaveBankDetails} disabled={bankSaving}>
+                        {bankSaving ? 'Saving...' : 'Save Bank Details'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
