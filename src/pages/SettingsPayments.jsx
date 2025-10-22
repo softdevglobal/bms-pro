@@ -111,6 +111,32 @@ export default function SettingsPayments() {
       }
     };
 
+    const loadPaymentMethods = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/payment-methods', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.paymentMethods) {
+            setSettings(prev => ({
+              ...prev,
+              bankTransferEnabled: data.paymentMethods.bankTransfer ?? prev.bankTransferEnabled,
+              cashEnabled: data.paymentMethods.cash ?? prev.cashEnabled,
+              chequeEnabled: data.paymentMethods.cheque ?? prev.chequeEnabled
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load payment methods:', err);
+      }
+    };
+
     const loadBankDetails = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -142,6 +168,7 @@ export default function SettingsPayments() {
     };
 
     loadStripeAccountId();
+    loadPaymentMethods();
     loadBankDetails();
   }, [user]);
 
@@ -186,6 +213,30 @@ export default function SettingsPayments() {
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    // Persist payment method toggles immediately
+    if (key === 'bankTransferEnabled' || key === 'cashEnabled' || key === 'chequeEnabled') {
+      const persist = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          const body = {};
+          if (key === 'bankTransferEnabled') body.bankTransfer = value;
+          if (key === 'cashEnabled') body.cash = value;
+          if (key === 'chequeEnabled') body.cheque = value;
+          await fetch('/api/users/payment-methods', {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
+        } catch (e) {
+          console.error('Failed to save payment method toggle:', e);
+        }
+      };
+      persist();
+    }
   };
 
   const formatBsb = (value) => {
