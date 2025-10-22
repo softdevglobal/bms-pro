@@ -100,6 +100,8 @@ const transformBookingData = (backendBooking) => {
     customerAvatar: backendBooking.customerAvatar,
     bookingSource: backendBooking.bookingSource,
     priceDetails: backendBooking.priceDetails,
+    // Unified payment details block from backend when confirmed
+    payment_details: backendBooking.payment_details,
     // Deposit information
     depositType: backendBooking.depositType,
     depositValue: backendBooking.depositValue,
