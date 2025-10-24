@@ -905,7 +905,7 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
 
 // Main magnificent component
 export default function Invoices() {
-  const { user, token } = useAuth();
+  const { user, token, userSettings } = useAuth();
   
   // State management with intelligent defaults
   const [activeTab, setActiveTab] = useState('invoices');
@@ -1164,12 +1164,31 @@ export default function Invoices() {
   useEffect(() => {
     if (!selectedBooking) return;
     const isFromQuotation = selectedBooking.bookingSource === 'quotation' && selectedQuotation;
-    const totalAmount = Number(selectedBooking.calculatedPrice || selectedQuotation?.totalAmount || 0);
+    const totalAmount = Number(
+      selectedBooking.payment_details?.total_amount ??
+      selectedBooking.calculatedPrice ??
+      selectedQuotation?.totalAmount ??
+      0
+    );
     
-    // Get deposit amount from quotation or booking itself
-    const depositAmount = isFromQuotation 
-      ? Number(selectedQuotation?.depositAmount || 0)
-      : Number(selectedBooking.depositAmount || 0);
+    // Prefer unified payment_details for deposit/final from DB when present
+    const depositAmount = Number(
+      selectedBooking.payment_details?.deposit_amount ??
+      (isFromQuotation ? (selectedQuotation?.depositAmount ?? 0) : (selectedBooking.depositAmount ?? 0))
+    );
+    const depositType = (selectedBooking.payment_details?.deposit_type || selectedBooking.depositType || 'Fixed');
+
+    // Strong default: if DB has deposit and final_due, always show FINAL with amount = final_due by default
+    const finalDueFromDb = Number(selectedBooking.payment_details?.final_due ?? Math.max(0, totalAmount - depositAmount));
+    if (depositAmount > 0 && finalDueFromDb > 0 && (newInvoiceData.invoiceType !== 'FINAL' || newInvoiceData.amount !== String(finalDueFromDb))) {
+      setNewInvoiceData(prev => ({
+        ...prev,
+        invoiceType: 'FINAL',
+        amount: String(finalDueFromDb),
+        description: `${selectedBooking.eventType} - FINAL Payment`
+      }));
+      return; // avoid overriding with other suggestions in this tick
+    }
 
     if (newInvoiceData.invoiceType === 'DEPOSIT') {
       // Prefill with deposit amount when available
@@ -1177,14 +1196,16 @@ export default function Invoices() {
         setNewInvoiceData(prev => ({
           ...prev,
           amount: String(depositAmount),
-          description: `${selectedBooking.eventType} - DEPOSIT Payment`
+          description: `${selectedBooking.eventType} - DEPOSIT (${depositType}) Payment`
         }));
       } else if (!newInvoiceData.amount && totalAmount && !depositAmount) {
         // If no deposit configured, suggest full amount
         setNewInvoiceData(prev => ({ ...prev, amount: String(totalAmount) }));
       }
     } else if (newInvoiceData.invoiceType === 'FINAL') {
-      const finalDue = Math.max(0, totalAmount - depositAmount);
+      const finalDue = Number(
+        selectedBooking.payment_details?.final_due ?? Math.max(0, totalAmount - depositAmount)
+      );
       if (finalDue && newInvoiceData.amount !== String(finalDue)) {
         setNewInvoiceData(prev => ({
           ...prev,
@@ -1219,40 +1240,93 @@ export default function Invoices() {
   const finalDuePreview = useMemo(() => {
     if (!isQuotationBooking || newInvoiceData.invoiceType !== 'FINAL') return null;
     const amount = Number(newInvoiceData.amount || 0); // This should be the full quoted total
-    const gst = Math.round(amount * 0.1 * 100) / 100; // 10% GST
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    let gst = 0;
+    let amountInclGst = amount;
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((amount / (1 + (rate / 100))) * 100) / 100;
+      gst = Math.round((amount - subtotal) * 100) / 100;
+    } else {
+      gst = Math.round((amount * (rate / 100)) * 100) / 100;
+      amountInclGst = amount + gst;
+    }
     const deposit = quotationTotals?.deposit || 0;
-    const due = Math.max(0, amount + gst - deposit);
+    const due = Math.max(0, amountInclGst - deposit);
     return { gst, due };
-  }, [isQuotationBooking, newInvoiceData.amount, newInvoiceData.invoiceType, quotationTotals]);
+  }, [isQuotationBooking, newInvoiceData.amount, newInvoiceData.invoiceType, quotationTotals, userSettings]);
 
   // Full-bill GST summary (independent of invoice type)
   const quotationGstSummary = useMemo(() => {
     if (!quotationTotals) return null;
-    const gst = Math.round(quotationTotals.total * 0.1 * 100) / 100;
-    const totalInclGst = quotationTotals.total + gst;
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    let gst = 0;
+    let totalInclGst = quotationTotals.total;
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((quotationTotals.total / (1 + (rate / 100))) * 100) / 100;
+      gst = Math.round((quotationTotals.total - subtotal) * 100) / 100;
+      totalInclGst = quotationTotals.total;
+    } else {
+      gst = Math.round((quotationTotals.total * (rate / 100)) * 100) / 100;
+      totalInclGst = quotationTotals.total + gst;
+    }
     const finalDueInclGst = Math.max(0, totalInclGst - quotationTotals.deposit);
     return { gst, totalInclGst, finalDueInclGst };
-  }, [quotationTotals]);
+  }, [quotationTotals, userSettings]);
 
   // Generic GST preview for non-quotation bookings
   const genericGstPreview = useMemo(() => {
     if (!selectedBooking) return null;
     const base = Number(newInvoiceData.amount || selectedBooking.calculatedPrice || 0);
     if (!base || Number.isNaN(base)) return { gst: 0, totalInclGst: 0 };
-    const gst = Math.round(base * 0.1 * 100) / 100;
-    return { gst, totalInclGst: base + gst };
-  }, [selectedBooking, newInvoiceData.amount]);
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((base / (1 + (rate / 100))) * 100) / 100;
+      const gst = Math.round((base - subtotal) * 100) / 100;
+      return { gst, totalInclGst: base };
+    } else {
+      const gst = Math.round((base * (rate / 100)) * 100) / 100;
+      return { gst, totalInclGst: base + gst };
+    }
+  }, [selectedBooking, newInvoiceData.amount, userSettings]);
+
+  // Prefer DB booking.payment_details for non-quotation bookings (admin/website/direct)
+  const bookingPaymentSummary = useMemo(() => {
+    if (!selectedBooking) return null;
+    const pd = selectedBooking.payment_details || {};
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const rateF = rate / 100;
+    const totalIncl = Number(pd.total_amount ?? selectedBooking.calculatedPrice ?? 0);
+    const taxType = (pd.tax?.tax_type || userSettings?.taxType || 'Inclusive').toString();
+    let gstAmount;
+    if (pd.tax && Number.isFinite(Number(pd.tax.tax_amount))) {
+      gstAmount = Number(pd.tax.tax_amount);
+    } else if (taxType.toLowerCase() === 'inclusive') {
+      const subtotal = Math.round((totalIncl / (1 + rateF)) * 100) / 100;
+      gstAmount = Math.round((totalIncl - subtotal) * 100) / 100;
+    } else {
+      gstAmount = Math.round((totalIncl * rateF) * 100) / 100;
+    }
+    const deposit = Number(pd.deposit_amount ?? selectedBooking.depositAmount ?? 0);
+    const finalDue = Number(pd.final_due ?? Math.max(0, totalIncl - deposit));
+    return { totalIncl, deposit, gstAmount, finalDue, rate };
+  }, [selectedBooking, userSettings]);
 
   // Handle creating new invoice
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
   const handleCreateInvoice = useCallback(async () => {
-    if (!selectedBooking || !newInvoiceData.amount) return;
+    if (!selectedBooking || !newInvoiceData.amount || creatingInvoice) return;
+    setCreatingInvoice(true);
     
     try {
       const invoiceData = generateInvoiceFromBooking(
         selectedBooking,
         newInvoiceData.invoiceType,
         parseFloat(newInvoiceData.amount),
-        newInvoiceData.description
+        newInvoiceData.description,
+        {}
       );
       
       await createInvoice(invoiceData, token);
@@ -1278,9 +1352,11 @@ export default function Invoices() {
       setSelectedBooking(null);
     } catch (err) {
       console.error('Error creating invoice:', err);
-      setError(err.message);
+      setError(`Failed to create invoice: ${err.message}`);
+    } finally {
+      setCreatingInvoice(false);
     }
-  }, [selectedBooking, newInvoiceData, token, user]);
+  }, [selectedBooking, newInvoiceData, token, user, creatingInvoice]);
 
   // Handle recording payment
   const handleRecordPayment = useCallback(async () => {
@@ -2038,8 +2114,6 @@ export default function Invoices() {
                       <SelectContent>
                         <SelectItem value="DEPOSIT">💰 Deposit</SelectItem>
                         <SelectItem value="FINAL">💳 Final Payment</SelectItem>
-                        <SelectItem value="BOND">🔒 Bond</SelectItem>
-                        <SelectItem value="ADD-ONS">➕ Add-ons</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2061,7 +2135,7 @@ export default function Invoices() {
                 {/* Summary tiles - Always show 4 tiles for all bookings */}
                 {isQuotationBooking ? (
                   <div className="mt-3 rounded-xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 p-3 text-xs text-gray-900 shadow-sm">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5">
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Quoted Total</div>
                         <div className="font-mono text-sm font-semibold">${quotationTotals.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
@@ -2102,19 +2176,20 @@ export default function Invoices() {
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Total Amount</div>
-                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.calculatedPrice || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.totalIncl ?? selectedBooking.calculatedPrice ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Deposit</div>
-                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.depositAmount || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.deposit ?? selectedBooking.depositAmount ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
+                      {/* Removed separate tile for tax type as requested */}
                       <div className="rounded-md bg-white/70 px-3 py-2">
-                        <div className="text-[11px] text-gray-500">GST (10%)</div>
-                        <div className="font-mono text-sm font-semibold">${(Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="text-[11px] text-gray-500">GST ({Number(bookingPaymentSummary?.rate ?? userSettings?.taxRate ?? 10)}%)</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.gstAmount ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
-                        <div className="font-mono text-sm font-semibold text-green-700">${(Math.max(0, (Number(selectedBooking.calculatedPrice || 0)) + (Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100) - (Number(selectedBooking.depositAmount || 0)))).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                        <div className="font-mono text-sm font-semibold text-green-700">${(Number(bookingPaymentSummary?.finalDue ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
                       </div>
                     </div>
                   </div>
@@ -2156,10 +2231,10 @@ export default function Invoices() {
             </Button>
             <Button 
               onClick={handleCreateInvoice}
-              disabled={!selectedBooking || !newInvoiceData.amount}
+              disabled={!selectedBooking || !newInvoiceData.amount || creatingInvoice}
               className="w-full sm:w-auto order-1 sm:order-2 h-9"
             >
-              Create Invoice
+              {creatingInvoice ? 'Creating…' : 'Create Invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>

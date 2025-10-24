@@ -31,10 +31,11 @@ export const transformBookingToCalendarEvent = (backendBooking) => {
     bookingSource: backendBooking.bookingSource,
     quotationId: backendBooking.quotationId,
     bookingCode: backendBooking.bookingCode,
-    // Deposit information
-    depositType: backendBooking.depositType || null,
+    // Unified payment details and deposit information
+    payment_details: backendBooking.payment_details || null,
+    depositType: (backendBooking.depositType || (backendBooking.payment_details && backendBooking.payment_details.deposit_type)) || null,
     depositValue: backendBooking.depositValue || null,
-    depositAmount: backendBooking.depositAmount || 0,
+    depositAmount: (backendBooking.depositAmount || (backendBooking.payment_details && backendBooking.payment_details.deposit_amount) || 0),
     createdAt: backendBooking.createdAt ? new Date(backendBooking.createdAt) : new Date(),
     updatedAt: backendBooking.updatedAt ? new Date(backendBooking.updatedAt) : new Date(),
     // Calendar-specific properties

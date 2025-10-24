@@ -15,6 +15,9 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     subtotal: backendInvoice.subtotal,
     gst: backendInvoice.gst,
     total: backendInvoice.total,
+    taxType: backendInvoice.taxType,
+    taxRate: backendInvoice.taxRate,
+    fullAmountWithGST: backendInvoice.fullAmountWithGST,
     paidAmount: backendInvoice.paidAmount,
     status: backendInvoice.status,
     description: backendInvoice.description,
@@ -307,6 +310,16 @@ export const generateInvoiceFromBooking = (booking, invoiceType, amount, descrip
     payload.depositAmount = options.depositAmount !== undefined ? options.depositAmount : booking.depositAmount;
     if (booking.depositValue !== undefined) {
       payload.depositValue = options.depositValue !== undefined ? options.depositValue : booking.depositValue;
+    }
+  } else if (booking.payment_details && Number(booking.payment_details.deposit_amount) > 0) {
+    // Fallback to unified payment_details if present on the booking
+    payload.depositType = options.depositType || 'Fixed';
+    payload.depositAmount = options.depositAmount !== undefined
+      ? options.depositAmount
+      : Number(booking.payment_details.deposit_amount);
+    // If a percentage is known on booking, carry it through
+    if (booking.depositType === 'Percentage' && Number.isFinite(Number(booking.depositValue))) {
+      payload.depositValue = Number(booking.depositValue);
     }
   }
   
