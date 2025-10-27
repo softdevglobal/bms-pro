@@ -31,7 +31,7 @@ import AdminBookingForm from "../components/bookings/AdminBookingForm";
 export default function Calendar() {
   const { user, parentUserData } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState("Week");
+  const [view, setView] = useState("Month");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showBuffers, setShowBuffers] = useState(false);
   const [events, setEvents] = useState([]);
@@ -638,7 +638,7 @@ export default function Calendar() {
               role="tablist"
               aria-label="Calendar view options"
             >
-                    {['Day', 'Week', 'Month', 'Resource'].map((viewOption) => (
+                    {['Day', 'Week', 'Month'].map((viewOption) => (
                       <Button
                         key={viewOption}
                         role="tab"
@@ -663,7 +663,11 @@ export default function Calendar() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
+              <Button
+                variant="outline"
+                className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
+                onClick={() => setCurrentDate(new Date())}
+              >
                 Today
               </Button>
               <Button

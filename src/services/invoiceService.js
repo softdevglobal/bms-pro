@@ -8,7 +8,7 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     invoiceNumber: backendInvoice.invoiceNumber,
     type: backendInvoice.invoiceType,
     customer: backendInvoice.customer,
-    booking: backendInvoice.bookingId,
+    booking: backendInvoice.bookingCode || backendInvoice.bookingId,
     resource: backendInvoice.resource,
     issueDate: backendInvoice.issueDate ? new Date(backendInvoice.issueDate) : new Date(),
     dueDate: backendInvoice.dueDate ? new Date(backendInvoice.dueDate) : new Date(),
@@ -29,6 +29,7 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     // Booking source information
     bookingSource: backendInvoice.bookingSource,
     quotationId: backendInvoice.quotationId,
+    bookingCode: backendInvoice.bookingCode,
     depositPaid: backendInvoice.depositPaid,
     finalTotal: backendInvoice.finalTotal,
     depositInfo: backendInvoice.depositInfo,
