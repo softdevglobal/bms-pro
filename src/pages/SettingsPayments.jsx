@@ -126,6 +126,7 @@ export default function SettingsPayments() {
           if (data?.paymentMethods) {
             setSettings(prev => ({
               ...prev,
+              stripeEnabled: data.paymentMethods.stripe ?? prev.stripeEnabled,
               bankTransferEnabled: data.paymentMethods.bankTransfer ?? prev.bankTransferEnabled,
               cashEnabled: data.paymentMethods.cash ?? prev.cashEnabled,
               chequeEnabled: data.paymentMethods.cheque ?? prev.chequeEnabled
@@ -214,12 +215,13 @@ export default function SettingsPayments() {
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     // Persist payment method toggles immediately
-    if (key === 'bankTransferEnabled' || key === 'cashEnabled' || key === 'chequeEnabled') {
+    if (key === 'stripeEnabled' || key === 'bankTransferEnabled' || key === 'cashEnabled' || key === 'chequeEnabled') {
       const persist = async () => {
         try {
           const token = localStorage.getItem('token');
           if (!token) return;
           const body = {};
+          if (key === 'stripeEnabled') body.stripe = value;
           if (key === 'bankTransferEnabled') body.bankTransfer = value;
           if (key === 'cashEnabled') body.cash = value;
           if (key === 'chequeEnabled') body.cheque = value;
@@ -358,8 +360,7 @@ export default function SettingsPayments() {
                   </div>
                   <Switch
                     id="stripe-enabled"
-                    checked={settings.stripeEnabled || !!settings.stripeAccountId}
-                    disabled={!!settings.stripeAccountId}
+                    checked={settings.stripeEnabled}
                     onCheckedChange={(checked) => updateSetting('stripeEnabled', checked)}
                   />
                 </div>

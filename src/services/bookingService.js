@@ -161,6 +161,34 @@ export const updateBooking = async (bookingId, update, token) => {
   }
 };
 
+// Fetch a single booking by ID (used to resolve booking codes in audit logs)
+export const fetchBookingById = async (bookingId, token) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bookings/${bookingId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(`Failed to fetch booking: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+    }
+
+    const backendBooking = await response.json();
+    // Return minimally required fields to avoid heavy transforms
+    return {
+      id: backendBooking.id,
+      bookingCode: backendBooking.bookingCode,
+    };
+  } catch (error) {
+    console.error('Error fetching booking by id:', error);
+    throw error;
+  }
+};
+
 // Fetch resources for a hall owner
 export const fetchResources = async (token) => {
   try {

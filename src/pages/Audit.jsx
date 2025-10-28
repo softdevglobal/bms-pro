@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import AuditService from "../services/auditService";
+import { fetchBookingById } from "../services/bookingService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Button } from "../components/ui/button";
@@ -65,7 +66,28 @@ export default function Audit() {
         sortOrder: 'desc'
       });
       
-      setAuditLogs(data.auditLogs || []);
+      // Resolve booking codes for targets that reference booking IDs
+      const logs = data.auditLogs || [];
+      const token = localStorage.getItem('token');
+      const enhancedLogs = await Promise.all(logs.map(async (log) => {
+        if (log.targetType === 'booking' && typeof log.target === 'string') {
+          // Heuristic: if target contains an ID pattern, try to fetch booking code
+          const idMatch = log.target.match(/ID[:\s]*([A-Za-z0-9_-]+)/i);
+          const bookingId = idMatch ? idMatch[1] : null;
+          if (bookingId && token) {
+            try {
+              const bk = await fetchBookingById(bookingId, token);
+              if (bk?.bookingCode) {
+                const targetText = `Booking ${bk.bookingCode}`;
+                return { ...log, target: targetText };
+              }
+            } catch (_) {}
+          }
+        }
+        return log;
+      }));
+
+      setAuditLogs(enhancedLogs);
       setPagination(prev => ({
         ...prev,
         total: data.pagination?.total || 0,
