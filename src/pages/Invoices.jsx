@@ -31,6 +31,7 @@ import {
   MoreVertical, // Added MoreVertical import
   Clock, // Added Clock import
   Loader2,
+  Copy,
 } from 'lucide-react';
 import {
   Table,
@@ -72,6 +73,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchInvoices, fetchPayments, createInvoice, updateInvoiceStatus, recordPayment, calculateInvoiceSummary, generateInvoiceFromBooking, downloadInvoicePDF, sendInvoiceReminders } from '@/services/invoiceService';
 import { fetchBookingsForCalendar } from '@/services/bookingService';
 import { fetchQuotation } from '@/services/quotationService';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 
 // Smart filter chips component with beautiful animations
@@ -298,7 +300,7 @@ const InvoicesTable = ({
               <span className="text-sm text-gray-600">
                 Total: ${invoices
                   .filter(inv => selectedRows.has(inv.id))
-                  .reduce((sum, inv) => sum + inv.total, 0)
+                  .reduce((sum, inv) => sum + (inv.finalTotal ?? inv.total ?? 0), 0)
                   .toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
               </span>
             </div>
@@ -402,7 +404,7 @@ const InvoicesTable = ({
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-semibold text-gray-900 whitespace-nowrap font-mono">{invoice.invoiceNumber || invoice.id}</span>
                       <Badge variant="outline" className="w-fit text-xs bg-blue-50 text-blue-700 border-blue-200">
-                        Tax Invoice
+                        Invoice
                       </Badge>
                     </div>
                   </TableCell>
@@ -449,31 +451,35 @@ const InvoicesTable = ({
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex flex-col gap-1 items-end">
+                    <div className="flex flex-col items-end">
                       <span className="font-mono font-semibold text-gray-900">
                         ${invoice.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
                       </span>
-                      {invoice.paidAmount > 0 && (
-                        <div className="text-xs text-gray-500">
-                          <div>Paid: ${invoice.paidAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
-                          {invoice.total > invoice.paidAmount && (
-                            <div className="text-red-600 font-medium">
-                              Bal: ${(invoice.total - invoice.paidAmount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {invoice.depositPaid > 0 && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          <div className="font-medium flex items-center gap-1">
-                            <span>💰</span>
-                            <span>Deposit: ${invoice.depositPaid.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                          </div>
-                          <div className="text-green-600 font-medium">
-                            Due: ${invoice.finalTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap gap-1 justify-end mt-1">
+                        {invoice.depositPaid > 0 && (
+                          <>
+                            <Badge variant="secondary" className="text-[11px] bg-blue-100 text-blue-800">
+                              Deposit ${invoice.depositPaid.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
+                            </Badge>
+                            <Badge variant="secondary" className="text-[11px] bg-green-100 text-green-800">
+                              Due ${invoice.finalTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
+                            </Badge>
+                          </>
+                        )}
+
+                        {invoice.depositPaid === 0 && invoice.paidAmount > 0 && (
+                          <>
+                            <Badge variant="secondary" className="text-[11px] bg-gray-100 text-gray-800">
+                              Paid ${invoice.paidAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}
+                            </Badge>
+                            {invoice.total > invoice.paidAmount && (
+                              <Badge variant="secondary" className="text-[11px] bg-amber-100 text-amber-800">
+                                Bal ${(invoice.total - invoice.paidAmount).toLocaleString('en-AU', { minimumFractionDigits: 2 })}
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -515,12 +521,25 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
 
   const gstRate = 0.1;
   const isLargeInvoice = invoice.total >= 1000;
-  const balanceDue = invoice.total - invoice.paidAmount;
+  // Balance due should be based on finalTotal (after deposit) when available
+  const invoiceGrossTotal = (invoice.finalTotal ?? invoice.total ?? 0);
+  const balanceDue = Math.max(0, invoiceGrossTotal - (invoice.paidAmount ?? 0));
     const isQuotationPreview = invoice.bookingSource === 'quotation';
     const quotedSubtotal = typeof invoice.subtotal === 'number' ? invoice.subtotal : Math.max(0, (invoice.total || 0) - (invoice.gst || 0));
     const gstAmount = typeof invoice.gst === 'number' ? invoice.gst : Math.round(quotedSubtotal * gstRate * 100) / 100;
     const depositAmount = invoice.depositPaid || 0;
     const finalDueInclGst = isQuotationPreview ? (invoice.finalTotal || Math.max(0, (invoice.total || 0) - depositAmount)) : (invoice.total || 0);
+
+  const [copiedKey, setCopiedKey] = useState(null);
+  const handleCopy = useCallback((key, value) => {
+    try {
+      navigator.clipboard.writeText(String(value));
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 1200);
+    } catch (_) {
+      // noop
+    }
+  }, []);
 
   return (
     <motion.div
@@ -553,87 +572,109 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
           animate={{ opacity: 1, scale: 1 }}
           className="space-y-4 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200"
         >
-          {/* Quick invoice meta row */}
-          <div className="text-xs text-gray-700 space-y-1">
-            <div className="font-mono whitespace-nowrap">
-              <span className="font-semibold">Invoice No:</span> {invoice.invoiceNumber || invoice.id}
+          {/* Quick invoice meta row - modern pills with copy */}
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-flex items-center gap-2 bg-white/70 border border-blue-200 rounded-full px-3 py-1">
+              <span className="text-[11px] font-semibold text-gray-700">Invoice</span>
+              <span className="font-mono text-xs text-gray-900">{invoice.invoiceNumber || invoice.id}</span>
+              <button
+                type="button"
+                className="p-1 rounded-full hover:bg-blue-100"
+                onClick={() => handleCopy('invoice', invoice.invoiceNumber || invoice.id)}
+                aria-label="Copy Invoice Number"
+              >
+                <Copy className="h-3.5 w-3.5 text-blue-700" />
+              </button>
+              {copiedKey === 'invoice' && (
+                <span className="text-[10px] text-green-700 ml-1">Copied</span>
+              )}
             </div>
-            <div className="break-all">
-              <span className="font-semibold">Booking ID:</span> {invoice.booking}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <h3 className="font-bold text-sm text-gray-800">ATO COMPLIANT TAX INVOICE</h3>
-          </div>
-          
-          {/* Supplier Details */}
-          <div className="text-sm space-y-2 bg-white/50 rounded-lg p-3">
-            <p className="font-bold text-gray-900">BMSPRO</p>
-            <p className="text-gray-700">123 High Street, Cranbourne VIC 3977</p>
-            <p className="font-medium text-gray-800">ABN: 12 345 678 901</p>
-          </div>
 
-          {/* Issue Date */}
-          <div className="bg-white/50 rounded-lg p-3">
-            <p className="text-sm">
-              <span className="font-semibold text-gray-800">Issue Date:</span>{' '}
-              <span className="text-gray-900">{format(invoice.issueDate, 'dd MMM yyyy')}</span>
-            </p>
-          </div>
-
-          {/* Booking Source Information */}
-          <div className="bg-white/50 rounded-lg p-3">
-            <p className="text-sm">
-              <span className="font-semibold text-gray-800">Booking Source:</span>{' '}
-              <div className="inline-flex items-center gap-2 mt-1">
-                {invoice.bookingSource === 'quotation' && invoice.quotationId ? (
-                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                    From Quotation {invoice.quotationId}
-                  </Badge>
-                ) : invoice.bookingSource === 'admin' ? (
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                    Admin Panel
-                  </Badge>
-                ) : invoice.bookingSource === 'website' ? (
-                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                    Website
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">
-                    {invoice.bookingSource || 'Direct'}
-                  </Badge>
+            {invoice.booking && (
+              <div className="bg-white/70 border border-indigo-200 rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-gray-700">Booking Reference</span>
+                    <span className="font-mono text-sm text-gray-900 break-all">{invoice.bookingCode || invoice.booking}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="p-1 rounded-full hover:bg-indigo-100"
+                    onClick={() => handleCopy('booking', invoice.bookingCode || invoice.booking)}
+                    aria-label="Copy Booking Reference"
+                  >
+                    <Copy className="h-3.5 w-3.5 text-indigo-700" />
+                  </button>
+                </div>
+                {copiedKey === 'booking' && (
+                  <span className="text-[10px] text-green-700 ml-1">Copied</span>
                 )}
               </div>
-            </p>
+            )}
           </div>
+          <Accordion type="single" collapsible className="bg-white/60 rounded-lg">
+            <AccordionItem value="summary" className="border-0">
+              <AccordionTrigger className="px-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-semibold">Summary</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border bg-white/70 p-2 text-center">
+                    <div className="text-[11px] text-gray-600">Invoice</div>
+                    <div className="font-mono text-sm font-semibold">{invoice.invoiceNumber || invoice.id}</div>
+                  </div>
+                  <div className="rounded-md border bg-white/70 p-2 text-center">
+                    <div className="text-[11px] text-gray-600">Booking Ref</div>
+                    <div className="font-mono text-sm font-semibold break-all">{invoice.bookingCode || invoice.booking}</div>
+                  </div>
+                  <div className="rounded-md border bg-white/70 p-2 text-center col-span-2">
+                    <div className="text-[11px] text-gray-600">Issue Date</div>
+                    <div className="font-mono text-sm font-semibold">{format(invoice.issueDate, 'dd MMM yyyy')}</div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
-          {/* Buyer Details (required for ≥$1,000) */}
-          {isLargeInvoice && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="text-sm space-y-2 bg-amber-50 rounded-lg p-3 border border-amber-200"
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <p className="font-semibold text-amber-800">High-Value Invoice (≥$1,000 AUD)</p>
-              </div>
-              <p className="font-medium text-gray-800">Bill To:</p>
-              <p className="text-gray-900">{invoice.customer.name}</p>
-              {invoice.customer.abn && (
-                <p className="text-gray-900 font-medium">ABN: {invoice.customer.abn}</p>
-              )}
-              {!invoice.customer.abn && (
-                <p className="text-amber-700 text-xs">⚠️ Customer ABN required for invoices ≥$1,000</p>
-              )}
-            </motion.div>
-          )}
+            <AccordionItem value="parties" className="border-0">
+              <AccordionTrigger className="px-3">Parties</AccordionTrigger>
+              <AccordionContent className="px-3">
+                <div className="text-sm space-y-1">
+                  <p className="font-bold text-gray-900">BMSPRO</p>
+                  <p className="text-gray-700">123 High Street, Cranbourne VIC 3977</p>
+                  <p className="font-medium text-gray-800">ABN: 12 345 678 901</p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
-          {/* Line Items with Perfect GST Calculation */}
-          <div className="text-sm bg-white/50 rounded-lg p-3">
-            <p className="font-semibold mb-3 text-gray-800">Description & GST Breakdown:</p>
-            <div className="space-y-2">
+            <AccordionItem value="meta" className="border-0">
+              <AccordionTrigger className="px-3">Details</AccordionTrigger>
+              <AccordionContent className="px-3">
+                <div className="flex items-center gap-2">
+                  {invoice.bookingSource === 'quotation' && invoice.quotationId ? (
+                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">From Quotation {invoice.quotationId}</Badge>
+                  ) : invoice.bookingSource === 'admin' ? (
+                    <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Admin Panel</Badge>
+                  ) : invoice.bookingSource === 'website' ? (
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Website</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-800">{invoice.bookingSource || 'Direct'}</Badge>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {/* Removed high-value invoice alert block to show only essential data */}
+
+          {/* Line Items - collapsible to reduce clutter */}
+          <Accordion type="single" collapsible className="bg-white/60 rounded-lg">
+            <AccordionItem value="items" className="border-0">
+              <AccordionTrigger className="px-3">Description & GST Breakdown</AccordionTrigger>
+              <AccordionContent className="px-3">
+                <div className="text-sm space-y-2">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <span className="text-gray-900">{invoice.resource} - {invoice.type} Payment</span>
@@ -659,9 +700,11 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               <div className="text-xs text-gray-600 bg-blue-50 rounded p-2 mt-3">
                 <p className="font-medium">✓ GST Rounding Applied per ATO Guidelines</p>
                 <p>All amounts rounded to nearest cent (0.5¢ rounds up)</p>
-              </div>
-            </div>
-          </div>
+                </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </motion.div>
 
         {/* Compact GST Summary Tiles */}
@@ -788,6 +831,11 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               <p className="text-lg font-bold font-mono text-gray-900">
                 ${(invoice.depositPaid > 0 ? invoice.finalTotal : invoice.total).toLocaleString('en-AU', { minimumFractionDigits: 2 })}
               </p>
+              {invoice.taxType && (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Tax Type: <span className="capitalize">{String(invoice.taxType)}</span>
+                </p>
+              )}
             </div>
             
             <div className="bg-white/70 rounded-lg p-3 text-center">
@@ -820,84 +868,22 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
             Copy Stripe Payment Link
           </Button>
           
-          <div className="grid grid-cols-2 gap-2">
+          <div>
             <Button 
               variant="outline" 
-              className="bg-white hover:bg-gray-50" 
+              className="w-full bg-white hover:bg-gray-50" 
               size="sm"
               onClick={() => downloadInvoicePDF(invoice.id, token)}
             >
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>
-            <Button variant="outline" className="bg-white hover:bg-gray-50" size="sm">
-              <FileText className="mr-2 h-4 w-4" />
-              View Booking
-            </Button>
           </div>
           
-          {balanceDue > 0 && (
-            <Button variant="outline" className="w-full border-green-300 text-green-700 hover:bg-green-50" size="sm">
-              <Banknote className="mr-2 h-4 w-4" />
-              Record Bank Payment
-            </Button>
-          )}
+          {/* Removed Record Bank Payment button from sidebar */}
         </div>
 
-        {/* Activity Timeline */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="space-y-3 border-t pt-4"
-        >
-          <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Activity Timeline
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-              <div>
-                <p className="text-gray-900 font-medium">
-                  Invoice created on {format(invoice.issueDate, 'dd MMM yyyy')}
-                </p>
-                <p className="text-gray-500 text-xs">System generated tax invoice</p>
-              </div>
-            </div>
-            
-            {invoice.status !== 'DRAFT' && (
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div>
-                  <p className="text-gray-900 font-medium">Sent to customer via email</p>
-                  <p className="text-gray-500 text-xs">
-                    {invoice.sentAt && format(invoice.sentAt, 'dd MMM yyyy, HH:mm')}
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {invoice.paidAmount > 0 && (
-              <div className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-                <div>
-                  <p className="text-gray-900 font-medium">
-                    Payment received: ${invoice.paidAmount.toFixed(2)} AUD
-                  </p>
-                  <p className="text-gray-500 text-xs">Via Stripe payment processing</p>
-                </div>
-              </div>
-            )}
-            </div>
-          </motion.div>
-
-        {/* Compliance Footer */}
-        <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3 border-t">
-          <p className="font-medium text-gray-700 mb-1">🏛️ Australian Tax Office Compliant</p>
-          <p>This digital tax invoice meets all ATO requirements for the invoice amount tier. 
-          GST calculations follow official rounding guidelines. All required fields present and validated.</p>
-        </div>
+        {/* Activity Timeline and compliance footer removed as per requirements */}
       </div>
     </motion.div>
   );
@@ -905,7 +891,7 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
 
 // Main magnificent component
 export default function Invoices() {
-  const { user, token } = useAuth();
+  const { user, token, userSettings } = useAuth();
   
   // State management with intelligent defaults
   const [activeTab, setActiveTab] = useState('invoices');
@@ -1164,12 +1150,31 @@ export default function Invoices() {
   useEffect(() => {
     if (!selectedBooking) return;
     const isFromQuotation = selectedBooking.bookingSource === 'quotation' && selectedQuotation;
-    const totalAmount = Number(selectedBooking.calculatedPrice || selectedQuotation?.totalAmount || 0);
+    const totalAmount = Number(
+      selectedBooking.payment_details?.total_amount ??
+      selectedBooking.calculatedPrice ??
+      selectedQuotation?.totalAmount ??
+      0
+    );
     
-    // Get deposit amount from quotation or booking itself
-    const depositAmount = isFromQuotation 
-      ? Number(selectedQuotation?.depositAmount || 0)
-      : Number(selectedBooking.depositAmount || 0);
+    // Prefer unified payment_details for deposit/final from DB when present
+    const depositAmount = Number(
+      selectedBooking.payment_details?.deposit_amount ??
+      (isFromQuotation ? (selectedQuotation?.depositAmount ?? 0) : (selectedBooking.depositAmount ?? 0))
+    );
+    const depositType = (selectedBooking.payment_details?.deposit_type || selectedBooking.depositType || 'Fixed');
+
+    // Strong default: if DB has deposit and final_due, always show FINAL with amount = final_due by default
+    const finalDueFromDb = Number(selectedBooking.payment_details?.final_due ?? Math.max(0, totalAmount - depositAmount));
+    if (depositAmount > 0 && finalDueFromDb > 0 && (newInvoiceData.invoiceType !== 'FINAL' || newInvoiceData.amount !== String(finalDueFromDb))) {
+      setNewInvoiceData(prev => ({
+        ...prev,
+        invoiceType: 'FINAL',
+        amount: String(finalDueFromDb),
+        description: `${selectedBooking.eventType} - FINAL Payment`
+      }));
+      return; // avoid overriding with other suggestions in this tick
+    }
 
     if (newInvoiceData.invoiceType === 'DEPOSIT') {
       // Prefill with deposit amount when available
@@ -1177,14 +1182,16 @@ export default function Invoices() {
         setNewInvoiceData(prev => ({
           ...prev,
           amount: String(depositAmount),
-          description: `${selectedBooking.eventType} - DEPOSIT Payment`
+          description: `${selectedBooking.eventType} - DEPOSIT (${depositType}) Payment`
         }));
       } else if (!newInvoiceData.amount && totalAmount && !depositAmount) {
         // If no deposit configured, suggest full amount
         setNewInvoiceData(prev => ({ ...prev, amount: String(totalAmount) }));
       }
     } else if (newInvoiceData.invoiceType === 'FINAL') {
-      const finalDue = Math.max(0, totalAmount - depositAmount);
+      const finalDue = Number(
+        selectedBooking.payment_details?.final_due ?? Math.max(0, totalAmount - depositAmount)
+      );
       if (finalDue && newInvoiceData.amount !== String(finalDue)) {
         setNewInvoiceData(prev => ({
           ...prev,
@@ -1219,40 +1226,93 @@ export default function Invoices() {
   const finalDuePreview = useMemo(() => {
     if (!isQuotationBooking || newInvoiceData.invoiceType !== 'FINAL') return null;
     const amount = Number(newInvoiceData.amount || 0); // This should be the full quoted total
-    const gst = Math.round(amount * 0.1 * 100) / 100; // 10% GST
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    let gst = 0;
+    let amountInclGst = amount;
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((amount / (1 + (rate / 100))) * 100) / 100;
+      gst = Math.round((amount - subtotal) * 100) / 100;
+    } else {
+      gst = Math.round((amount * (rate / 100)) * 100) / 100;
+      amountInclGst = amount + gst;
+    }
     const deposit = quotationTotals?.deposit || 0;
-    const due = Math.max(0, amount + gst - deposit);
+    const due = Math.max(0, amountInclGst - deposit);
     return { gst, due };
-  }, [isQuotationBooking, newInvoiceData.amount, newInvoiceData.invoiceType, quotationTotals]);
+  }, [isQuotationBooking, newInvoiceData.amount, newInvoiceData.invoiceType, quotationTotals, userSettings]);
 
   // Full-bill GST summary (independent of invoice type)
   const quotationGstSummary = useMemo(() => {
     if (!quotationTotals) return null;
-    const gst = Math.round(quotationTotals.total * 0.1 * 100) / 100;
-    const totalInclGst = quotationTotals.total + gst;
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    let gst = 0;
+    let totalInclGst = quotationTotals.total;
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((quotationTotals.total / (1 + (rate / 100))) * 100) / 100;
+      gst = Math.round((quotationTotals.total - subtotal) * 100) / 100;
+      totalInclGst = quotationTotals.total;
+    } else {
+      gst = Math.round((quotationTotals.total * (rate / 100)) * 100) / 100;
+      totalInclGst = quotationTotals.total + gst;
+    }
     const finalDueInclGst = Math.max(0, totalInclGst - quotationTotals.deposit);
     return { gst, totalInclGst, finalDueInclGst };
-  }, [quotationTotals]);
+  }, [quotationTotals, userSettings]);
 
   // Generic GST preview for non-quotation bookings
   const genericGstPreview = useMemo(() => {
     if (!selectedBooking) return null;
     const base = Number(newInvoiceData.amount || selectedBooking.calculatedPrice || 0);
     if (!base || Number.isNaN(base)) return { gst: 0, totalInclGst: 0 };
-    const gst = Math.round(base * 0.1 * 100) / 100;
-    return { gst, totalInclGst: base + gst };
-  }, [selectedBooking, newInvoiceData.amount]);
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const type = userSettings?.taxType || 'Inclusive';
+    if (type === 'Inclusive') {
+      const subtotal = Math.round((base / (1 + (rate / 100))) * 100) / 100;
+      const gst = Math.round((base - subtotal) * 100) / 100;
+      return { gst, totalInclGst: base };
+    } else {
+      const gst = Math.round((base * (rate / 100)) * 100) / 100;
+      return { gst, totalInclGst: base + gst };
+    }
+  }, [selectedBooking, newInvoiceData.amount, userSettings]);
+
+  // Prefer DB booking.payment_details for non-quotation bookings (admin/website/direct)
+  const bookingPaymentSummary = useMemo(() => {
+    if (!selectedBooking) return null;
+    const pd = selectedBooking.payment_details || {};
+    const rate = Number.isFinite(Number(userSettings?.taxRate)) ? Number(userSettings.taxRate) : 10;
+    const rateF = rate / 100;
+    const totalIncl = Number(pd.total_amount ?? selectedBooking.calculatedPrice ?? 0);
+    const taxType = (pd.tax?.tax_type || userSettings?.taxType || 'Inclusive').toString();
+    let gstAmount;
+    if (pd.tax && Number.isFinite(Number(pd.tax.tax_amount))) {
+      gstAmount = Number(pd.tax.tax_amount);
+    } else if (taxType.toLowerCase() === 'inclusive') {
+      const subtotal = Math.round((totalIncl / (1 + rateF)) * 100) / 100;
+      gstAmount = Math.round((totalIncl - subtotal) * 100) / 100;
+    } else {
+      gstAmount = Math.round((totalIncl * rateF) * 100) / 100;
+    }
+    const deposit = Number(pd.deposit_amount ?? selectedBooking.depositAmount ?? 0);
+    const finalDue = Number(pd.final_due ?? Math.max(0, totalIncl - deposit));
+    return { totalIncl, deposit, gstAmount, finalDue, rate };
+  }, [selectedBooking, userSettings]);
 
   // Handle creating new invoice
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
   const handleCreateInvoice = useCallback(async () => {
-    if (!selectedBooking || !newInvoiceData.amount) return;
+    if (!selectedBooking || !newInvoiceData.amount || creatingInvoice) return;
+    setCreatingInvoice(true);
     
     try {
       const invoiceData = generateInvoiceFromBooking(
         selectedBooking,
         newInvoiceData.invoiceType,
         parseFloat(newInvoiceData.amount),
-        newInvoiceData.description
+        newInvoiceData.description,
+        {}
       );
       
       await createInvoice(invoiceData, token);
@@ -1278,9 +1338,11 @@ export default function Invoices() {
       setSelectedBooking(null);
     } catch (err) {
       console.error('Error creating invoice:', err);
-      setError(err.message);
+      setError(`Failed to create invoice: ${err.message}`);
+    } finally {
+      setCreatingInvoice(false);
     }
-  }, [selectedBooking, newInvoiceData, token, user]);
+  }, [selectedBooking, newInvoiceData, token, user, creatingInvoice]);
 
   // Handle recording payment
   const handleRecordPayment = useCallback(async () => {
@@ -1336,7 +1398,7 @@ export default function Invoices() {
         'GST': invoice.gst.toFixed(2),
         'Total Amount': invoice.total.toFixed(2),
         'Paid Amount': invoice.paidAmount.toFixed(2),
-        'Balance Due': (invoice.total - invoice.paidAmount).toFixed(2),
+        'Balance Due': ((invoice.finalTotal ?? invoice.total ?? 0) - (invoice.paidAmount ?? 0)).toFixed(2),
         'Status': invoice.status,
         'Deposit Paid': invoice.depositPaid ? invoice.depositPaid.toFixed(2) : '0.00',
         'Final Total': invoice.finalTotal ? invoice.finalTotal.toFixed(2) : invoice.total.toFixed(2),
@@ -2038,8 +2100,6 @@ export default function Invoices() {
                       <SelectContent>
                         <SelectItem value="DEPOSIT">💰 Deposit</SelectItem>
                         <SelectItem value="FINAL">💳 Final Payment</SelectItem>
-                        <SelectItem value="BOND">🔒 Bond</SelectItem>
-                        <SelectItem value="ADD-ONS">➕ Add-ons</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2061,7 +2121,7 @@ export default function Invoices() {
                 {/* Summary tiles - Always show 4 tiles for all bookings */}
                 {isQuotationBooking ? (
                   <div className="mt-3 rounded-xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 p-3 text-xs text-gray-900 shadow-sm">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5">
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Quoted Total</div>
                         <div className="font-mono text-sm font-semibold">${quotationTotals.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
@@ -2102,19 +2162,20 @@ export default function Invoices() {
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Total Amount</div>
-                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.calculatedPrice || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.totalIncl ?? selectedBooking.calculatedPrice ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Deposit</div>
-                        <div className="font-mono text-sm font-semibold">${(Number(selectedBooking.depositAmount || 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.deposit ?? selectedBooking.depositAmount ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
+                      {/* Removed separate tile for tax type as requested */}
                       <div className="rounded-md bg-white/70 px-3 py-2">
-                        <div className="text-[11px] text-gray-500">GST (10%)</div>
-                        <div className="font-mono text-sm font-semibold">${(Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                        <div className="text-[11px] text-gray-500">GST ({Number(bookingPaymentSummary?.rate ?? userSettings?.taxRate ?? 10)}%)</div>
+                        <div className="font-mono text-sm font-semibold">${(Number(bookingPaymentSummary?.gstAmount ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                       </div>
                       <div className="rounded-md bg-white/70 px-3 py-2">
                         <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
-                        <div className="font-mono text-sm font-semibold text-green-700">${(Math.max(0, (Number(selectedBooking.calculatedPrice || 0)) + (Math.round((Number(selectedBooking.calculatedPrice || 0)) * 0.1 * 100) / 100) - (Number(selectedBooking.depositAmount || 0)))).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                        <div className="font-mono text-sm font-semibold text-green-700">${(Number(bookingPaymentSummary?.finalDue ?? 0)).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
                       </div>
                     </div>
                   </div>
@@ -2156,10 +2217,10 @@ export default function Invoices() {
             </Button>
             <Button 
               onClick={handleCreateInvoice}
-              disabled={!selectedBooking || !newInvoiceData.amount}
+              disabled={!selectedBooking || !newInvoiceData.amount || creatingInvoice}
               className="w-full sm:w-auto order-1 sm:order-2 h-9"
             >
-              Create Invoice
+              {creatingInvoice ? 'Creating…' : 'Create Invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>

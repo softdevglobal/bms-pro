@@ -7,6 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+// We'll use backend API for saving/fetching Stripe Account ID to respect security rules
+import { db, auth } from '../../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   CreditCard,
   Banknote,
@@ -26,11 +30,11 @@ import {
 import { motion } from 'framer-motion';
 
 export default function SettingsPayments() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState({
     // Payment Methods
     stripeEnabled: false,
-    stripePublishableKey: '',
-    stripeSecretKey: '',
+    stripeAccountId: '',
     bankTransferEnabled: true,
     cashEnabled: true,
     chequeEnabled: false,
@@ -60,23 +64,145 @@ export default function SettingsPayments() {
     // Notifications
     notifyOnPayment: true,
     notifyOnOverdue: true,
-    autoSendInvoices: false
+    autoSendInvoices: false,
+    // Bank Transfer Details
+    bankDetails: {
+      accountName: '',
+      bankName: '',
+      bsb: '',
+      accountNumber: '',
+      referenceNote: ''
+    }
   });
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [stripeError, setStripeError] = useState('');
+  const [isEditingStripe, setIsEditingStripe] = useState(true);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankSaved, setBankSaved] = useState(false);
+  const [bankError, setBankError] = useState('');
 
-  // Load settings on component mount
+  // Load existing Stripe Account ID via backend API (handles sub-users automatically)
   useEffect(() => {
-    // In a real app, this would load from the backend
-    // For now, we'll use the default settings
-  }, []);
+    const loadStripeAccountId = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/stripe-account', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.stripeAccountId !== undefined) {
+            setSettings(prev => ({
+              ...prev,
+              stripeAccountId: data.stripeAccountId || '',
+              stripeEnabled: Boolean(data.stripeAccountId) || prev.stripeEnabled
+            }));
+            setIsEditingStripe(!Boolean(data.stripeAccountId));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load Stripe Account ID:', err);
+      }
+    };
+
+    const loadPaymentMethods = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/payment-methods', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.paymentMethods) {
+            setSettings(prev => ({
+              ...prev,
+              stripeEnabled: data.paymentMethods.stripe ?? prev.stripeEnabled,
+              bankTransferEnabled: data.paymentMethods.bankTransfer ?? prev.bankTransferEnabled,
+              cashEnabled: data.paymentMethods.cash ?? prev.cashEnabled,
+              chequeEnabled: data.paymentMethods.cheque ?? prev.chequeEnabled
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load payment methods:', err);
+      }
+    };
+
+    const loadBankDetails = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const resp = await fetch('/api/users/bank-details', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.bankDetails) {
+            setSettings(prev => ({
+              ...prev,
+              bankDetails: {
+                accountName: data.bankDetails.accountName || '',
+                bankName: data.bankDetails.bankName || '',
+                bsb: data.bankDetails.bsb || '',
+                accountNumber: data.bankDetails.accountNumber || '',
+                referenceNote: data.bankDetails.referenceNote || ''
+              }
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load bank details:', err);
+      }
+    };
+
+    loadStripeAccountId();
+    loadPaymentMethods();
+    loadBankDetails();
+  }, [user]);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      // In a real app, this would save to the backend
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const value = (settings.stripeAccountId || '').trim();
+      if (value && !value.startsWith('acct_')) {
+        setStripeError('Stripe Account ID must start with "acct_"');
+        return;
+      }
+
+      // Save via backend API (handles sub-users and security)
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+      const resp = await fetch('/api/users/stripe-account', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ stripeAccountId: value || '' })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'Failed to save' }));
+        throw new Error(err.message || 'Failed to save Stripe Account ID');
+      }
+      // Ensure Stripe remains enabled and visible after saving a valid ID
+      setSettings(prev => ({
+        ...prev,
+        stripeEnabled: Boolean(value) || prev.stripeEnabled
+      }));
+      setIsEditingStripe(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
@@ -88,6 +214,82 @@ export default function SettingsPayments() {
 
   const updateSetting = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    // Persist payment method toggles immediately
+    if (key === 'stripeEnabled' || key === 'bankTransferEnabled' || key === 'cashEnabled' || key === 'chequeEnabled') {
+      const persist = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          const body = {};
+          if (key === 'stripeEnabled') body.stripe = value;
+          if (key === 'bankTransferEnabled') body.bankTransfer = value;
+          if (key === 'cashEnabled') body.cash = value;
+          if (key === 'chequeEnabled') body.cheque = value;
+          await fetch('/api/users/payment-methods', {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
+        } catch (e) {
+          console.error('Failed to save payment method toggle:', e);
+        }
+      };
+      persist();
+    }
+  };
+
+  const formatBsb = (value) => {
+    const digits = (value || '').replace(/[^0-9]/g, '').slice(0, 6);
+    if (digits.length <= 3) return digits;
+    return `${digits.slice(0,3)}-${digits.slice(3)}`;
+  };
+
+  const handleSaveBankDetails = async () => {
+    setBankError('');
+    setBankSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+      const { accountName, bankName, bsb, accountNumber, referenceNote } = settings.bankDetails || {};
+
+      if (bsb && !/^\d{3}-?\d{3}$/.test(bsb)) {
+        setBankError('BSB must be 6 digits (e.g. 123-456)');
+        return;
+      }
+      if (accountNumber && !/^\d{4,12}$/.test(accountNumber)) {
+        setBankError('Account number must be 4-12 digits');
+        return;
+      }
+
+      const resp = await fetch('/api/users/bank-details', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accountName: (accountName || '').trim(),
+          bankName: (bankName || '').trim(),
+          bsb: (bsb || '').trim(),
+          accountNumber: (accountNumber || '').trim(),
+          referenceNote: (referenceNote || '').trim()
+        })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'Failed to save bank details' }));
+        throw new Error(err.message || 'Failed to save bank details');
+      }
+      setBankSaved(true);
+      setTimeout(() => setBankSaved(false), 3000);
+    } catch (e) {
+      console.error('Error saving bank details:', e);
+      setBankError(e.message || 'Failed to save bank details');
+    } finally {
+      setBankSaving(false);
+    }
   };
 
   return (
@@ -163,27 +365,38 @@ export default function SettingsPayments() {
                   />
                 </div>
                 
-                {settings.stripeEnabled && (
+                {(settings.stripeEnabled || !!settings.stripeAccountId) && (
                   <div className="space-y-3 pl-6 border-l-2 border-purple-200">
                     <div>
-                      <Label htmlFor="stripe-publishable-key">Publishable Key</Label>
+                      <Label htmlFor="stripe-account-id">Stripe Account ID</Label>
                       <Input
-                        id="stripe-publishable-key"
-                        type="password"
-                        value={settings.stripePublishableKey}
-                        onChange={(e) => updateSetting('stripePublishableKey', e.target.value)}
-                        placeholder="pk_test_..."
+                        id="stripe-account-id"
+                        value={settings.stripeAccountId}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setStripeError(val && !val.startsWith('acct_') ? 'Stripe Account ID must start with "acct_"' : '');
+                          updateSetting('stripeAccountId', e.target.value);
+                        }}
+                        placeholder="acct_1ABCDEF..."
+                        disabled={!isEditingStripe}
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="stripe-secret-key">Secret Key</Label>
-                      <Input
-                        id="stripe-secret-key"
-                        type="password"
-                        value={settings.stripeSecretKey}
-                        onChange={(e) => updateSetting('stripeSecretKey', e.target.value)}
-                        placeholder="sk_test_..."
-                      />
+                      {stripeError && (
+                        <p className="text-red-600 text-sm mt-1">{stripeError}</p>
+                      )}
+                      {!stripeError && settings.stripeAccountId && settings.stripeAccountId.startsWith('acct_') && (
+                        <Badge variant="secondary" className="mt-2">Looks valid</Badge>
+                      )}
+                      <div className="mt-3">
+                        {isEditingStripe ? (
+                          <Button onClick={handleSave} disabled={loading || !!stripeError}>
+                            {loading ? 'Saving...' : 'Save Stripe'}
+                          </Button>
+                        ) : (
+                          <Button variant="outline" onClick={() => setIsEditingStripe(true)}>
+                            Edit Stripe ID
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -206,6 +419,71 @@ export default function SettingsPayments() {
                     onCheckedChange={(checked) => updateSetting('bankTransferEnabled', checked)}
                   />
                 </div>
+
+                {settings.bankTransferEnabled && (
+                  <div className="space-y-3 pl-6 border-l-2 border-green-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="bank-account-name">Account Name</Label>
+                        <Input
+                          id="bank-account-name"
+                          value={settings.bankDetails.accountName}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, accountName: e.target.value } }))}
+                          placeholder="e.g. Cranbourne Public Hall"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-bank-name">Bank Name</Label>
+                        <Input
+                          id="bank-bank-name"
+                          value={settings.bankDetails.bankName}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, bankName: e.target.value } }))}
+                          placeholder="e.g. Commonwealth Bank"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-bsb">BSB</Label>
+                        <Input
+                          id="bank-bsb"
+                          value={settings.bankDetails.bsb}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, bsb: formatBsb(e.target.value) } }))}
+                          placeholder="123-456"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bank-account-number">Account Number</Label>
+                        <Input
+                          id="bank-account-number"
+                          value={settings.bankDetails.accountNumber}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, accountNumber: e.target.value.replace(/[^0-9]/g, '') } }))}
+                          placeholder="12345678"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="bank-reference">Reference Note (shown on invoices)</Label>
+                        <Input
+                          id="bank-reference"
+                          value={settings.bankDetails.referenceNote}
+                          onChange={(e) => setSettings(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, referenceNote: e.target.value } }))}
+                          placeholder="Use Invoice Number as reference"
+                        />
+                      </div>
+                    </div>
+                    {bankError && (
+                      <p className="text-red-600 text-sm">{bankError}</p>
+                    )}
+                    {bankSaved && (
+                      <p className="text-green-700 text-sm">Bank details saved.</p>
+                    )}
+                    <div>
+                      <Button onClick={handleSaveBankDetails} disabled={bankSaving}>
+                        {bankSaving ? 'Saving...' : 'Save Bank Details'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

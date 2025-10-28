@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -60,6 +62,7 @@ const PaymentStatus = ({ label, amount, status }) => {
 };
 
 const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept }) => {
+  const navigate = useNavigate();
   // Debug: Log booking data to see what's available
   console.log('BookingDetailPaneAdvanced - booking data:', {
     id: booking?.id,
@@ -97,9 +100,29 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
     .join('')
     .toUpperCase();
 
-  const depositAmount = typeof booking.depositAmount === 'number' ? booking.depositAmount : 0;
-  const totalValue = typeof booking.totalValue === 'number' ? booking.totalValue : 0;
-  const paidRatio = Math.max(0, Math.min(1, totalValue > 0 ? depositAmount / totalValue : 0));
+  // Prefer unified payment_details if present (from backend on confirmation)
+  const paymentDetails = booking?.payment_details || {};
+  const totalInclGst = typeof paymentDetails.total_amount === 'number'
+    ? paymentDetails.total_amount
+    : (booking.calculatedPrice || booking.totalValue || 0);
+  const gstPercent = Number(paymentDetails?.tax?.gst) || 10;
+  const taxAmount = typeof paymentDetails?.tax?.tax_amount === 'number'
+    ? paymentDetails.tax.tax_amount
+    : (totalInclGst - (totalInclGst / (1 + (gstPercent / 100))));
+  const taxTypeResolved = paymentDetails?.tax?.tax_type || booking.taxType || 'Inclusive';
+  const subtotalResolved = (typeof paymentDetails?.tax?.tax_amount === 'number')
+    ? (totalInclGst - taxAmount)
+    : (taxTypeResolved === 'Exclusive'
+        ? totalInclGst
+        : (totalInclGst / (1 + (gstPercent / 100))));
+  const depositAmount = (typeof paymentDetails?.deposit_amount === 'number')
+    ? paymentDetails.deposit_amount
+    : (typeof booking.depositAmount === 'number' ? booking.depositAmount : 0);
+  const depositPaid = Boolean(paymentDetails?.deposit_paid);
+  const finalDueResolved = (typeof paymentDetails?.final_due === 'number')
+    ? paymentDetails.final_due
+    : Math.max(0, totalInclGst - (depositAmount || 0));
+  const paidRatio = Math.max(0, Math.min(1, totalInclGst > 0 ? (depositAmount || 0) / totalInclGst : 0));
 
   return (
     <motion.div
@@ -261,41 +284,47 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal:</span>
-                      <span className="text-gray-900">${((booking.calculatedPrice || booking.totalValue || 0) / 1.1).toFixed(2)}</span>
+                      <span className="text-gray-900">${subtotalResolved.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">GST (10%):</span>
-                      <span className="text-gray-900">${(((booking.calculatedPrice || booking.totalValue || 0) / 1.1) * 0.1).toFixed(2)}</span>
+                      <span className="text-gray-600">GST ({gstPercent}%):</span>
+                      <span className="text-gray-900">${Number(taxAmount || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
                       <span className="font-semibold text-gray-700">Total (incl. GST):</span>
-                      <span className="font-semibold text-green-600 text-base">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                      <span className="font-semibold text-green-600 text-base">${(totalInclGst).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Tax Type:</span>
+                      <span className="capitalize">{taxTypeResolved}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Deposit and Balance Information */}
-                {booking.depositType && booking.depositType !== 'None' && booking.depositAmount > 0 ? (
+                {(depositAmount > 0 || (booking.depositType && booking.depositType !== 'None')) ? (
                   <div className="space-y-2 mt-3">
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-blue-800 font-medium">💰 Deposit ({booking.depositType}):</span>
+                        <span className="text-blue-800 font-medium">💰 Deposit {booking.depositType ? `(${booking.depositType})` : ''}:</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-blue-900">${booking.depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                          <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">Paid</Badge>
+                          <span className="font-semibold text-blue-900">${(depositAmount || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                          <Badge variant="outline" className={`${depositPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} text-xs`}>{depositPaid ? 'Paid' : 'Pending'}</Badge>
                         </div>
                       </div>
-                      {booking.depositType === 'Percentage' && (
+                      {(booking.depositType === 'Percentage' || (!booking.depositType && depositAmount && totalInclGst)) && (
                         <div className="text-xs text-blue-700">
-                          {booking.depositValue}% of total amount (GST inclusive)
+                          {booking.depositType === 'Percentage' && booking.depositValue
+                            ? `${booking.depositValue}%`
+                            : `${Math.round(((depositAmount / (totalInclGst || 1)) * 100))}%`} of total amount (GST inclusive)
                         </div>
                       )}
                     </div>
                     
                     <div className="bg-green-50 rounded-lg p-3 border-2 border-green-500">
                       <div className="flex justify-between items-center">
-                        <span className="text-green-800 font-semibold text-sm">💳 Balance Due:</span>
-                        <span className="font-bold text-green-900 text-lg">${((booking.calculatedPrice || booking.totalValue || 0) - booking.depositAmount).toFixed(2)} AUD</span>
+                        <span className="text-green-800 font-semibold text-sm">💳 Final Payment Due:</span>
+                        <span className="font-bold text-green-900 text-lg">${(finalDueResolved).toFixed(2)} AUD</span>
                       </div>
                       <div className="text-xs text-green-700 mt-1">
                         Remaining payment after deposit
@@ -359,7 +388,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={() => navigate(createPageUrl('Invoices'))}>
               <FileText className="mr-2 h-4 w-4" /> Invoice
             </Button>
             <Button variant="outline" className="w-full" onClick={() => onEdit && onEdit(booking)}>

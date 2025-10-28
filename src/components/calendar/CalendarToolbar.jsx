@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 const CalendarToolbar = ({ view, setView, currentDate, onDateChange }) => {
   const [showBuffers, setShowBuffers] = React.useState(false);
 
-  const viewButtons = ['Day', 'Week', 'Month', 'Resource'];
+  const viewButtons = ['Day', 'Week', 'Month'];
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 pt-4">

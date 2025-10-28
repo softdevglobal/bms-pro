@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, CheckCircle2, XCircle, RefreshCw, Filter, Calendar, Clock, DollarSign, User, Building2, MoreVertical, X } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, RefreshCw, Filter, Calendar, Clock, DollarSign, User, Building2, MoreVertical, X, Link as LinkIcon, Copy } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,8 @@ export default function Deposits() {
   const [statusFilter, setStatusFilter] = useState('all'); // all | paid | unpaid
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsPayload, setDetailsPayload] = useState(null); // { type: 'booking'|'quotation', item }
+  const [ownerPaymentMethods, setOwnerPaymentMethods] = useState(null);
+  const [ownerBankDetails, setOwnerBankDetails] = useState(null);
   const formatCurrency = (n) => `$${Number(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`;
 
   const fetchBookings = useCallback(async (isRefresh = false) => {
@@ -58,6 +60,30 @@ export default function Deposits() {
   }, [user?.id]);
 
   useEffect(() => { if (user?.id) fetchBookings(); }, [user?.id, fetchBookings]);
+
+  // When opening details for a booking, fetch hall owner's payment methods and bank details
+  useEffect(() => {
+    const loadOwnerPaymentConfig = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        // Fetch in parallel
+        const [methodsRes, bankRes] = await Promise.all([
+          fetch('/api/users/payment-methods', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/users/bank-details', { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        const methodsJson = methodsRes.ok ? await methodsRes.json().catch(() => ({})) : {};
+        const bankJson = bankRes.ok ? await bankRes.json().catch(() => ({})) : {};
+        setOwnerPaymentMethods(methodsJson?.paymentMethods || null);
+        setOwnerBankDetails(bankJson?.bankDetails || null);
+      } catch (_) {
+        // Ignore errors - UI will gracefully omit extra info
+      }
+    };
+    if (detailsOpen && detailsPayload?.type === 'booking') {
+      loadOwnerPaymentConfig();
+    }
+  }, [detailsOpen, detailsPayload?.type]);
 
   // Load quotations for deposits tab
   useEffect(() => {
@@ -538,7 +564,7 @@ export default function Deposits() {
 
       {/* Details Side Menu */}
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <SheetContent side="right" className="sm:max-w-md p-0">
+        <SheetContent side="right" className="sm:max-w-md p-0 flex h-full flex-col">
           {/* Creative header */}
           <div className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-600 to-indigo-600 text-white p-5">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent" />
@@ -556,7 +582,8 @@ export default function Deposits() {
             </div>
           </div>
 
-          {/* Content */}
+          {/* Content (scrollable) */}
+          <div className="flex-1 overflow-y-auto">
           {detailsPayload && (
             <div className="p-5 space-y-5">
               {/* Summary tiles */}
@@ -595,6 +622,7 @@ export default function Deposits() {
                 const dep = Number(p.deposit_amount || 0);
                 const due = Number(p.final_due || Math.max(0, total - dep));
                 const paid = Boolean(p.deposit_paid);
+                const stripeUrl = p.stripe_payment_url || b?.stripePaymentUrl || null;
                 return (
                   <div className="space-y-4">
                     <div className="space-y-1">
@@ -618,6 +646,67 @@ export default function Deposits() {
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200"><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />Unpaid</Badge>
                         )}
                       </div>
+                    </div>
+
+                    {/* Payment Options */}
+                    <div className="rounded-lg border p-3 space-y-2">
+                      <div className="text-xs text-slate-500">Payment Options</div>
+                      {stripeUrl && (
+                        <div className="rounded-md border p-2 bg-white">
+                          <div className="text-[11px] text-slate-500">Stripe Payment Link</div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4 text-emerald-600" />
+                            <a
+                              href={stripeUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-emerald-700 underline"
+                              style={{ wordBreak: 'break-all', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                            >
+                              {stripeUrl}
+                            </a>
+                            <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => navigator.clipboard.writeText(stripeUrl)}>
+                              <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {stripeUrl && paid && (
+                        <div className="text-xs text-green-700">Stripe payment completed.</div>
+                      )}
+                      {/* Owner configured methods */}
+                      {ownerPaymentMethods && (
+                        <div className="text-xs text-slate-600 space-y-1">
+                          <div>Accepted: {
+                            [
+                              ownerPaymentMethods.bankTransfer ? 'Bank Transfer' : null,
+                              ownerPaymentMethods.cash ? 'Cash' : null,
+                              ownerPaymentMethods.cheque ? 'Cheque' : null
+                            ].filter(Boolean).join(', ') || '—'
+                          }</div>
+                          {ownerPaymentMethods.bankTransfer && ownerBankDetails && (
+                            <div className="text-[11px] text-slate-500">
+                              Bank: {ownerBankDetails.bankName || '—'} • BSB: {ownerBankDetails.bsb || '—'} • Acc: {ownerBankDetails.accountNumber || '—'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {!paid && (
+                        <div className="pt-2 grid grid-cols-3 gap-2">
+                          {ownerPaymentMethods?.bankTransfer && (
+                            <Button variant="outline" className="text-xs" onClick={() => toggleDepositPaid(b)}>Mark Paid (Bank)</Button>
+                          )}
+                          {ownerPaymentMethods?.cash && (
+                            <Button variant="outline" className="text-xs" onClick={() => toggleDepositPaid(b)}>Mark Paid (Cash)</Button>
+                          )}
+                          {ownerPaymentMethods?.cheque && (
+                            <Button variant="outline" className="text-xs" onClick={() => toggleDepositPaid(b)}>Mark Paid (Cheque)</Button>
+                          )}
+                        </div>
+                      )}
+                      {!ownerPaymentMethods && !stripeUrl && (
+                        <div className="text-[11px] text-slate-500">Use the buttons above to update deposit status when paid via bank, cash or cheque.</div>
+                      )}
                     </div>
                   </div>
                 );
@@ -659,6 +748,7 @@ export default function Deposits() {
               })()}
             </div>
           )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>

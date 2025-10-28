@@ -8,13 +8,18 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     invoiceNumber: backendInvoice.invoiceNumber,
     type: backendInvoice.invoiceType,
     customer: backendInvoice.customer,
-    booking: backendInvoice.bookingId,
+    booking: backendInvoice.bookingCode || backendInvoice.bookingId,
+    bookingId: backendInvoice.bookingId,
+    bookingCode: backendInvoice.bookingCode,
     resource: backendInvoice.resource,
     issueDate: backendInvoice.issueDate ? new Date(backendInvoice.issueDate) : new Date(),
     dueDate: backendInvoice.dueDate ? new Date(backendInvoice.dueDate) : new Date(),
     subtotal: backendInvoice.subtotal,
     gst: backendInvoice.gst,
     total: backendInvoice.total,
+    taxType: backendInvoice.taxType,
+    taxRate: backendInvoice.taxRate,
+    fullAmountWithGST: backendInvoice.fullAmountWithGST,
     paidAmount: backendInvoice.paidAmount,
     status: backendInvoice.status,
     description: backendInvoice.description,
@@ -26,6 +31,7 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     // Booking source information
     bookingSource: backendInvoice.bookingSource,
     quotationId: backendInvoice.quotationId,
+    bookingCode: backendInvoice.bookingCode,
     depositPaid: backendInvoice.depositPaid,
     finalTotal: backendInvoice.finalTotal,
     depositInfo: backendInvoice.depositInfo,
@@ -308,6 +314,16 @@ export const generateInvoiceFromBooking = (booking, invoiceType, amount, descrip
     if (booking.depositValue !== undefined) {
       payload.depositValue = options.depositValue !== undefined ? options.depositValue : booking.depositValue;
     }
+  } else if (booking.payment_details && Number(booking.payment_details.deposit_amount) > 0) {
+    // Fallback to unified payment_details if present on the booking
+    payload.depositType = options.depositType || 'Fixed';
+    payload.depositAmount = options.depositAmount !== undefined
+      ? options.depositAmount
+      : Number(booking.payment_details.deposit_amount);
+    // If a percentage is known on booking, carry it through
+    if (booking.depositType === 'Percentage' && Number.isFinite(Number(booking.depositValue))) {
+      payload.depositValue = Number(booking.depositValue);
+    }
   }
   
   // For quotation-derived bookings, pass additional quotation metadata
@@ -389,8 +405,17 @@ export const sendInvoiceReminders = async (invoiceIds, hallOwnerId, token) => {
 
 // Helper function to calculate invoice summary statistics
 export const calculateInvoiceSummary = (invoices) => {
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.total, 0);
-  const paidAmount = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+  // Use finalTotal when present; fall back to total
+  const getInvoiceTotal = (inv) => (inv.finalTotal ?? inv.total ?? 0);
+
+  const totalAmount = invoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
+  const paidAmount = invoices.reduce((sum, inv) => sum + (inv.paidAmount ?? 0), 0);
+  // Sum per-invoice outstanding to handle mixed totals and paid amounts
+  const outstandingAmount = invoices.reduce((sum, inv) => {
+    const invOutstanding = Math.max(0, getInvoiceTotal(inv) - (inv.paidAmount ?? 0));
+    return sum + invOutstanding;
+  }, 0);
+
   const overdueCount = invoices.filter(inv => inv.status === 'OVERDUE').length;
   const draftCount = invoices.filter(inv => inv.status === 'DRAFT').length;
   const sentCount = invoices.filter(inv => inv.status === 'SENT').length;
@@ -400,7 +425,7 @@ export const calculateInvoiceSummary = (invoices) => {
   return {
     totalAmount,
     paidAmount,
-    outstandingAmount: totalAmount - paidAmount,
+    outstandingAmount,
     overdueCount,
     draftCount,
     sentCount,
