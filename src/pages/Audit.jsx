@@ -510,41 +510,11 @@ export default function Audit() {
               </Button>
             </div>
           </div>
-          {/* Quick Filters */}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge onClick={() => handleFilterChange('action', 'create')} className="cursor-pointer bg-green-100 text-green-800">Create</Badge>
-            <Badge onClick={() => handleFilterChange('action', 'update')} className="cursor-pointer bg-amber-100 text-amber-800">Update</Badge>
-            <Badge onClick={() => handleFilterChange('action', 'delete')} className="cursor-pointer bg-red-100 text-red-800">Delete</Badge>
-            <Badge onClick={() => { clearFilters(); }} className="cursor-pointer bg-gray-100 text-gray-800">Reset</Badge>
-          </div>
+          {/* Quick Filters removed as requested */}
         </CardContent>
       </Card>
 
-      {/* Diagnostics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Info className="w-5 h-5" /> Troubleshooting & Diagnostics</CardTitle>
-          <CardDescription>If data looks empty, run a quick diagnostic and review the console.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="text-sm text-muted-foreground">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Ensure backend is running on port 5000</li>
-                <li>Confirm you are logged in with a valid token</li>
-                <li>Perform actions to generate audit logs</li>
-              </ul>
-            </div>
-            <div className="flex items-center gap-2">
-              {diagnosticHint && <span className="text-sm text-gray-600">{diagnosticHint}</span>}
-              <Button onClick={runDiagnostics} variant="outline" size="sm" disabled={runningDiagnostic}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {runningDiagnostic ? 'Running...' : 'Run Diagnostics'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Diagnostics removed as requested */}
 
       {/* Audit Logs Table */}
       <Card>
@@ -778,14 +748,32 @@ export default function Audit() {
                 </div>
               )}
               
-              {selectedLog.changes && Object.keys(selectedLog.changes).length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <div className="text-xs uppercase text-amber-700 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Changes</div>
-                  <div className="p-3 bg-white rounded-md border border-amber-100">
-                    {renderChanges(selectedLog.changes)}
-                  </div>
-                </div>
-              )}
+              {(() => {
+                const isDepositToggle = selectedLog?.action === 'deposit_marked_paid' || selectedLog?.action === 'deposit_marked_unpaid';
+                if (isDepositToggle) {
+                  const amount = Number(selectedLog?.changes?.deposit_amount ?? 0);
+                  return (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="text-xs uppercase text-gray-700 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Deposit</div>
+                      <div className="p-3 bg-white rounded-md border border-gray-200 flex items-center justify-between">
+                        <span className="text-gray-600">Deposit Amount</span>
+                        <span className="font-mono font-semibold text-gray-900">${amount.toFixed(2)} AUD</span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (selectedLog.changes && Object.keys(selectedLog.changes).length > 0) {
+                  return (
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="text-xs uppercase text-gray-700 mb-2 flex items-center gap-2"><Sparkles className="w-4 h-4" /> Changes</div>
+                      <div className="p-3 bg-white rounded-md border border-gray-200">
+                        {renderChanges(selectedLog.changes)}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="flex items-center justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => copyDetailsAsJson(selectedLog)}>
