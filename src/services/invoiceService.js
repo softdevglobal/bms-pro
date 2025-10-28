@@ -9,6 +9,8 @@ export const transformInvoiceFromBackend = (backendInvoice) => {
     type: backendInvoice.invoiceType,
     customer: backendInvoice.customer,
     booking: backendInvoice.bookingCode || backendInvoice.bookingId,
+    bookingId: backendInvoice.bookingId,
+    bookingCode: backendInvoice.bookingCode,
     resource: backendInvoice.resource,
     issueDate: backendInvoice.issueDate ? new Date(backendInvoice.issueDate) : new Date(),
     dueDate: backendInvoice.dueDate ? new Date(backendInvoice.dueDate) : new Date(),
@@ -403,8 +405,17 @@ export const sendInvoiceReminders = async (invoiceIds, hallOwnerId, token) => {
 
 // Helper function to calculate invoice summary statistics
 export const calculateInvoiceSummary = (invoices) => {
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.total, 0);
-  const paidAmount = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+  // Use finalTotal when present; fall back to total
+  const getInvoiceTotal = (inv) => (inv.finalTotal ?? inv.total ?? 0);
+
+  const totalAmount = invoices.reduce((sum, inv) => sum + getInvoiceTotal(inv), 0);
+  const paidAmount = invoices.reduce((sum, inv) => sum + (inv.paidAmount ?? 0), 0);
+  // Sum per-invoice outstanding to handle mixed totals and paid amounts
+  const outstandingAmount = invoices.reduce((sum, inv) => {
+    const invOutstanding = Math.max(0, getInvoiceTotal(inv) - (inv.paidAmount ?? 0));
+    return sum + invOutstanding;
+  }, 0);
+
   const overdueCount = invoices.filter(inv => inv.status === 'OVERDUE').length;
   const draftCount = invoices.filter(inv => inv.status === 'DRAFT').length;
   const sentCount = invoices.filter(inv => inv.status === 'SENT').length;
@@ -414,7 +425,7 @@ export const calculateInvoiceSummary = (invoices) => {
   return {
     totalAmount,
     paidAmount,
-    outstandingAmount: totalAmount - paidAmount,
+    outstandingAmount,
     overdueCount,
     draftCount,
     sentCount,
