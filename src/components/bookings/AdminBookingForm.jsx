@@ -588,7 +588,7 @@ export default function AdminBookingForm({
                     placeholder="0.00"
                   />
                   <p className="text-xs text-gray-500">
-                    Optional. Leave blank to use hall's default pricing.
+                    If provided, this overrides the auto-calculated price and becomes the final bill total.
                   </p>
                   
                   {/* Price Preview */}
