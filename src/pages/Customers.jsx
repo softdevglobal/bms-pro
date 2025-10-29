@@ -32,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -57,7 +56,6 @@ export default function CustomersPage() {
   const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
-  const [selectedRows, setSelectedRows] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ column: 'clv', direction: 'desc' });
   const [activeCustomer, setActiveCustomer] = useState(null);
@@ -169,6 +167,29 @@ export default function CustomersPage() {
   const getAriaSort = (column) => {
       if(sortConfig.column !== column) return 'none';
       return sortConfig.direction === 'asc' ? 'ascending' : 'descending';
+  };
+
+  // --- Small UI helpers ---
+  const getInitials = (name = '') => {
+    const parts = String(name).trim().split(/\s+/);
+    const a = (parts[0] || '').charAt(0).toUpperCase();
+    const b = (parts[1] || '').charAt(0).toUpperCase();
+    return (a + b) || 'C';
+  };
+
+  const hueFromString = (s = '') => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return h;
+  };
+
+  const segmentClasses = (segment) => {
+    switch (segment) {
+      case 'Champions': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'Loyal': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'At-Risk': return 'bg-amber-50 text-amber-700 border-amber-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
   };
 
   return (
@@ -400,47 +421,62 @@ export default function CustomersPage() {
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-white/90 backdrop-blur"> 
                     <TableRow>
-                      <TableHead className="w-12"><Checkbox /></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('name')} aria-sort={getAriaSort('name')}>Customer {getSortIcon('name')}</button></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('rfm')} aria-sort={getAriaSort('rfm')}>RFM {getSortIcon('rfm')}</button></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('clv')} aria-sort={getAriaSort('clv')}>CLV (AUD) {getSortIcon('clv')}</button></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('lastActiveDays')} aria-sort={getAriaSort('lastActiveDays')}>Last Active {getSortIcon('lastActiveDays')}</button></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('totalBookings')} aria-sort={getAriaSort('totalBookings')}>Bookings {getSortIcon('totalBookings')}</button></TableHead>
-                      <TableHead><button className="flex items-center gap-1" onClick={() => handleSort('lifetimeSpend')} aria-sort={getAriaSort('lifetimeSpend')}>Spend (AUD) {getSortIcon('lifetimeSpend')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('name')} aria-sort={getAriaSort('name')}>Customer {getSortIcon('name')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('rfm')} aria-sort={getAriaSort('rfm')}>RFM {getSortIcon('rfm')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('clv')} aria-sort={getAriaSort('clv')}>CLV (AUD) {getSortIcon('clv')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('lastActiveDays')} aria-sort={getAriaSort('lastActiveDays')}>Last Active {getSortIcon('lastActiveDays')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('totalBookings')} aria-sort={getAriaSort('totalBookings')}>Bookings {getSortIcon('totalBookings')}</button></TableHead>
+                      <TableHead><button className="flex items-center gap-1 font-semibold" onClick={() => handleSort('lifetimeSpend')} aria-sort={getAriaSort('lifetimeSpend')}>Spend (AUD) {getSortIcon('lifetimeSpend')}</button></TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCustomers.map(customer => (
-                      <TableRow key={customer.id} className="cursor-pointer" onClick={() => setActiveCustomer(customer)}>
-                        <TableCell><Checkbox /></TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {customer.name}
-                            {customer.tags.includes('VIP') && <Badge variant="destructive">VIP</Badge>}
-                            {customer.tags.includes('NFP') && <Badge variant="secondary">NFP</Badge>}
-                          </div>
-                          <div className="text-sm text-gray-500">{customer.email}</div>
-                          {customer.phone && <div className="text-xs text-gray-400">{customer.phone}</div>}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="outline">{customer.rfm}</Badge>
-                            <span className="text-xs text-gray-500">{customer.segment}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">${customer.clv.toFixed(0)}</TableCell>
-                        <TableCell>{formatDistanceToNow(new Date().setDate(new Date().getDate() - customer.lastActiveDays))} ago</TableCell>
-                        <TableCell className="text-center">{customer.totalBookings}</TableCell>
-                        <TableCell className="text-right">${customer.lifetimeSpend.toFixed(2)}</TableCell>
-                        <TableCell>
-                           <Button variant="ghost" size="icon"><Mail className="h-4 w-4" /></Button>
-                           <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredCustomers.map((customer, idx) => {
+                      const hue = hueFromString(customer.email || customer.name);
+                      return (
+                        <TableRow
+                          key={customer.id}
+                          className={`cursor-pointer transition-colors hover:bg-blue-50/40 ${idx % 2 ? 'bg-gray-50/30' : ''}`}
+                          onClick={() => setActiveCustomer(customer)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="flex items-center justify-center h-8 w-8 rounded-full text-white text-xs font-bold shadow-sm"
+                                style={{ background: `linear-gradient(135deg, hsl(${hue},80%,55%), hsl(${(hue+40)%360},80%,45%))` }}
+                              >
+                                {getInitials(customer.name)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate max-w-[220px] sm:max-w-[320px]">{customer.name}</span>
+                                  {customer.tags.includes('VIP') && <Badge variant="destructive">VIP</Badge>}
+                                  {customer.tags.includes('NFP') && <Badge variant="secondary">NFP</Badge>}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">{customer.email}</div>
+                                {customer.phone && <div className="text-[11px] text-gray-400 truncate">{customer.phone}</div>}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge className="border-0 text-white" style={{ background: `linear-gradient(135deg,#4f46e5,#7c3aed)` }}>{customer.rfm}</Badge>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full border ${segmentClasses(customer.segment)}`}>{customer.segment}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">${customer.clv.toFixed(0)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatDistanceToNow(new Date().setDate(new Date().getDate() - customer.lastActiveDays))} ago</TableCell>
+                          <TableCell className="text-center font-semibold">{customer.totalBookings}</TableCell>
+                          <TableCell className="text-right font-mono">${customer.lifetimeSpend.toFixed(2)}</TableCell>
+                          <TableCell className="space-x-1">
+                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); window.location.href = `mailto:${customer.email}`; }}><Mail className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreVertical className="h-4 w-4" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
