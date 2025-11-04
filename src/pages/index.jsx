@@ -70,6 +70,8 @@ import Management from "./Management";
 
 import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import PaymentSuccess from './PaymentSuccess';
+import PaymentFail from './PaymentFail';
 
 const PAGES = {
     
@@ -167,6 +169,9 @@ function PagesContent() {
             {/* Redirect root to /login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            {/* Public payment result routes for Stripe redirects */}
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/fail" element={<PaymentFail />} />
             
             {/* All other routes are protected */}
             <Route path="/Welcome" element={
