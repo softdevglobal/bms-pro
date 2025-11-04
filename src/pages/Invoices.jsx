@@ -863,10 +863,32 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
 
         {/* Action Buttons with Gradient Magic */}
         <div className="space-y-3">
-          <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg" size="sm">
-            <Send className="mr-2 h-4 w-4" />
-            Copy Stripe Payment Link
-          </Button>
+          {(() => {
+            const stripeUrl = invoice.stripePaymentUrl || invoice.paymentLink || invoice.payment_url || invoice.paymentUrl || invoice?.payment_details?.stripe_payment_url || null;
+            if (invoice.status === 'PAID' || !stripeUrl) return null;
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                  size="sm"
+                  onClick={() => window.open(stripeUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Open Stripe Link
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full bg-white hover:bg-gray-50"
+                  size="sm"
+                  onClick={() => navigator.clipboard.writeText(String(stripeUrl))}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Link
+                </Button>
+              </div>
+            );
+          })()}
+          
           
           <div>
             <Button 
@@ -1813,12 +1835,16 @@ export default function Invoices() {
                             <TableHead>Paid On</TableHead>
                             <TableHead className="text-right">Paid Amount</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paidInvoices.length > 0 ? (
                             paidInvoices.map((invoice) => (
-                              <TableRow key={invoice.id} className="hover:bg-gray-50/50">
+                              <TableRow
+                                key={invoice.id}
+                                className="hover:bg-gray-50/50"
+                              >
                                 <TableCell className="font-medium">
                                   <div className="flex flex-col gap-1">
                                     <span className="text-sm font-semibold text-gray-900 whitespace-nowrap font-mono">
@@ -1850,6 +1876,18 @@ export default function Invoices() {
                                 </TableCell>
                                 <TableCell>
                                   <StatusBadge status={invoice.status} />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => { setSelectedInvoice(invoice); setShowDetailPane(true); }}
+                                    aria-label="Open invoice details"
+                                    title="Open details"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             ))
