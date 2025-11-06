@@ -53,6 +53,10 @@ export default function SettingsPayments() {
     // Business Details
     businessName: '',
     businessAddress: '',
+    businessAddressLine1: '',
+    businessAddressLine2: '',
+    businessAddressPostcode: '',
+    businessAddressState: '',
     businessABN: '',
     businessEmail: '',
     businessPhone: '',
@@ -82,6 +86,9 @@ export default function SettingsPayments() {
   const [bankSaving, setBankSaving] = useState(false);
   const [bankSaved, setBankSaved] = useState(false);
   const [bankError, setBankError] = useState('');
+  const [businessSaving, setBusinessSaving] = useState(false);
+  const [businessSaved, setBusinessSaved] = useState(false);
+  const [businessError, setBusinessError] = useState('');
 
   // Load existing Stripe Account ID via backend API (handles sub-users automatically)
   useEffect(() => {
@@ -137,6 +144,11 @@ export default function SettingsPayments() {
             businessEmail: p?.email || prev.businessEmail,
             businessPhone: p?.contactNumber || prev.businessPhone,
             businessAddress: formattedAddress || prev.businessAddress,
+            businessAddressLine1: addr?.line1 || '',
+            businessAddressLine2: addr?.line2 || '',
+            businessAddressPostcode: addr?.postcode || '',
+            businessAddressState: addr?.state || '',
+            businessABN: p?.abn || prev.businessABN,
           }));
         };
 
@@ -223,33 +235,89 @@ export default function SettingsPayments() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const value = (settings.stripeAccountId || '').trim();
-      if (value && !value.startsWith('acct_')) {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      // 1) Save Stripe Account ID (if provided)
+      const stripeValue = (settings.stripeAccountId || '').trim();
+      if (stripeValue && !stripeValue.startsWith('acct_')) {
         setStripeError('Stripe Account ID must start with "acct_"');
         return;
       }
-
-      // Save via backend API (handles sub-users and security)
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Not authenticated');
-      const resp = await fetch('/api/users/stripe-account', {
+      const stripeSave = fetch('/api/users/stripe-account', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ stripeAccountId: value || '' })
+        body: JSON.stringify({ stripeAccountId: stripeValue || '' })
       });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ message: 'Failed to save' }));
+
+      // 2) Save Business Details (address, abn, phone, hallName)
+      const businessPayload = {
+        hallName: (settings.businessName || '').trim(),
+        contactNumber: (settings.businessPhone || '').trim(),
+        abn: (settings.businessABN || '').trim(),
+        address: {
+          line1: (settings.businessAddressLine1 || '').trim(),
+          line2: (settings.businessAddressLine2 || '').trim(),
+          postcode: (settings.businessAddressPostcode || '').trim(),
+          state: (settings.businessAddressState || '').trim()
+        }
+      };
+      if (!businessPayload.address.line1 || !businessPayload.address.postcode || !businessPayload.address.state) {
+        throw new Error('Address requires line1, postcode and state');
+      }
+      const businessSave = fetch('/api/users/business-details', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(businessPayload)
+      });
+
+      // Run both saves in parallel
+      const [stripeResp, businessResp] = await Promise.all([stripeSave, businessSave]);
+      if (!stripeResp.ok) {
+        const err = await stripeResp.json().catch(() => ({ message: 'Failed to save Stripe Account ID' }));
         throw new Error(err.message || 'Failed to save Stripe Account ID');
       }
-      // Ensure Stripe remains enabled and visible after saving a valid ID
+      if (!businessResp.ok) {
+        const err = await businessResp.json().catch(() => ({ message: 'Failed to save business details' }));
+        throw new Error(err.message || 'Failed to save business details');
+      }
+
+      // Sync local states
       setSettings(prev => ({
         ...prev,
-        stripeEnabled: Boolean(value) || prev.stripeEnabled
+        stripeEnabled: Boolean(stripeValue) || prev.stripeEnabled
       }));
       setIsEditingStripe(false);
+
+      // Refetch profile and update UI to ensure persisted
+      const profileResp = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (profileResp.ok) {
+        const profile = await profileResp.json();
+        const addr = profile?.address || null;
+        setSettings(prev => ({
+          ...prev,
+          businessName: profile?.hallName || prev.businessName,
+          businessEmail: profile?.email || prev.businessEmail,
+          businessPhone: profile?.contactNumber || prev.businessPhone,
+          businessAddressLine1: addr?.line1 || prev.businessAddressLine1,
+          businessAddressLine2: addr?.line2 || prev.businessAddressLine2,
+          businessAddressPostcode: addr?.postcode || prev.businessAddressPostcode,
+          businessAddressState: addr?.state || prev.businessAddressState,
+          businessABN: profile?.abn || prev.businessABN,
+        }));
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
@@ -336,6 +404,78 @@ export default function SettingsPayments() {
       setBankError(e.message || 'Failed to save bank details');
     } finally {
       setBankSaving(false);
+    }
+  };
+
+  const handleSaveBusinessDetails = async () => {
+    setBusinessError('');
+    setBusinessSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Not authenticated');
+
+      const address = {
+        line1: (settings.businessAddressLine1 || '').trim(),
+        line2: (settings.businessAddressLine2 || '').trim(),
+        postcode: (settings.businessAddressPostcode || '').trim(),
+        state: (settings.businessAddressState || '').trim()
+      };
+
+      if (!address.line1 || !address.postcode || !address.state) {
+        setBusinessError('Address requires line1, postcode and state');
+        return;
+      }
+
+      const payload = {
+        hallName: (settings.businessName || '').trim(),
+        contactNumber: (settings.businessPhone || '').trim(),
+        abn: (settings.businessABN || '').trim(),
+        address
+      };
+
+      const resp = await fetch('/api/users/business-details', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ message: 'Failed to save business details' }));
+        throw new Error(err.message || 'Failed to save business details');
+      }
+
+      // Refetch profile to confirm persisted values and sync UI
+      const profileResp = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (profileResp.ok) {
+        const profile = await profileResp.json();
+        const addr = profile?.address || null;
+        setSettings(prev => ({
+          ...prev,
+          businessName: profile?.hallName || prev.businessName,
+          businessEmail: profile?.email || prev.businessEmail,
+          businessPhone: profile?.contactNumber || prev.businessPhone,
+          businessAddressLine1: addr?.line1 || prev.businessAddressLine1,
+          businessAddressLine2: addr?.line2 || prev.businessAddressLine2,
+          businessAddressPostcode: addr?.postcode || prev.businessAddressPostcode,
+          businessAddressState: addr?.state || prev.businessAddressState,
+          businessABN: profile?.abn || prev.businessABN,
+        }));
+      }
+
+      setBusinessSaved(true);
+      setTimeout(() => setBusinessSaved(false), 3000);
+    } catch (e) {
+      console.error('Error saving business details:', e);
+      setBusinessError(e.message || 'Failed to save business details');
+    } finally {
+      setBusinessSaving(false);
     }
   };
 
@@ -679,14 +819,53 @@ export default function SettingsPayments() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="business-address">Business Address</Label>
-                <Textarea
-                  id="business-address"
-                  value={settings.businessAddress}
-                  onChange={(e) => updateSetting('businessAddress', e.target.value)}
-                  rows={3}
-                />
+              <div className="space-y-3">
+                <Label htmlFor="business-address-line1">Business Address</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Input
+                      id="business-address-line1"
+                      placeholder="Street address"
+                      value={settings.businessAddressLine1}
+                      onChange={(e) => updateSetting('businessAddressLine1', e.target.value)}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Input
+                      id="business-address-line2"
+                      placeholder="Apartment, suite, etc. (optional)"
+                      value={settings.businessAddressLine2}
+                      onChange={(e) => updateSetting('businessAddressLine2', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="business-address-postcode"
+                      placeholder="Postcode"
+                      value={settings.businessAddressPostcode}
+                      onChange={(e) => updateSetting('businessAddressPostcode', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="business-address-state"
+                      placeholder="State"
+                      value={settings.businessAddressState}
+                      onChange={(e) => updateSetting('businessAddressState', e.target.value)}
+                    />
+                  </div>
+                </div>
+                {businessError && (
+                  <p className="text-red-600 text-sm">{businessError}</p>
+                )}
+                {businessSaved && (
+                  <p className="text-green-700 text-sm">Business details saved.</p>
+                )}
+                <div>
+                  <Button onClick={handleSaveBusinessDetails} disabled={businessSaving}>
+                    {businessSaving ? 'Saving...' : 'Save Business Details'}
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

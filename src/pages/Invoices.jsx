@@ -552,7 +552,7 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
         setBusiness({
           name: source?.hallName || '',
           address: formatAddress(source?.address) || '',
-          abn: '' // ABN not currently stored in users document
+          abn: source?.abn || ''
         });
       } catch (e) {
         // Silently ignore; we will just not render business lines
