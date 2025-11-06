@@ -519,6 +519,48 @@ const InvoicesTable = ({
 const InvoiceDetailPane = ({ invoice, onClose, token }) => {
   if (!invoice) return null;
 
+  const [business, setBusiness] = useState({ name: '', address: '', abn: '' });
+
+  useEffect(() => {
+    const loadBusiness = async () => {
+      try {
+        if (!token) return;
+        const profileResp = await fetch('/api/users/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!profileResp.ok) return;
+        const profile = await profileResp.json();
+
+        const formatAddress = (addr) => {
+          if (!addr) return '';
+          const line = [addr.line1, addr.line2].filter(Boolean).join(', ');
+          const tail = [addr.state, addr.postcode].filter(Boolean).join(' ');
+          return [line, tail].filter(Boolean).join(', ');
+        };
+
+        let source = profile;
+        if (profile?.role === 'sub_user' && profile?.parentUserId) {
+          const parentResp = await fetch(`/api/users/parent-data/${profile.parentUserId}`);
+          if (parentResp.ok) {
+            source = await parentResp.json();
+          }
+        }
+
+        setBusiness({
+          name: source?.hallName || '',
+          address: formatAddress(source?.address) || '',
+          abn: '' // ABN not currently stored in users document
+        });
+      } catch (e) {
+        // Silently ignore; we will just not render business lines
+      }
+    };
+    loadBusiness();
+  }, [token]);
+
   const gstRate = 0.1;
   const isLargeInvoice = invoice.total >= 1000;
   // Balance due should be based on finalTotal (after deposit) when available
@@ -642,9 +684,15 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               <AccordionTrigger className="px-3">Parties</AccordionTrigger>
               <AccordionContent className="px-3">
                 <div className="text-sm space-y-1">
-                  <p className="font-bold text-gray-900">BMSPRO</p>
-                  <p className="text-gray-700">123 High Street, Cranbourne VIC 3977</p>
-                  <p className="font-medium text-gray-800">ABN: 12 345 678 901</p>
+                  {business.name && (
+                    <p className="font-bold text-gray-900">{business.name}</p>
+                  )}
+                  {business.address && (
+                    <p className="text-gray-700">{business.address}</p>
+                  )}
+                  {business.abn && (
+                    <p className="font-medium text-gray-800">ABN: {business.abn}</p>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

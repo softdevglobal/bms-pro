@@ -51,11 +51,11 @@ export default function SettingsPayments() {
     reminderDays: [7, 3, 1], // Days before due date
     
     // Business Details
-    businessName: 'BMSPRO',
-    businessAddress: '123 High Street, Cranbourne VIC 3977',
-    businessABN: '12 345 678 901',
-    businessEmail: 'accounts@bmspro.com.au',
-    businessPhone: '+61 3 1234 5678',
+    businessName: '',
+    businessAddress: '',
+    businessABN: '',
+    businessEmail: '',
+    businessPhone: '',
     
     // Terms & Conditions
     paymentTerms: 'Payment is due within 30 days of invoice date. Late payments may incur additional charges.',
@@ -108,6 +108,52 @@ export default function SettingsPayments() {
         }
       } catch (err) {
         console.error('Failed to load Stripe Account ID:', err);
+      }
+    };
+
+    const loadBusinessDetails = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        // Fetch current user's profile
+        const profileResp = await fetch('/api/users/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!profileResp.ok) return;
+        const profile = await profileResp.json();
+
+        const applyProfileToSettings = (p) => {
+          const addr = p?.address || null;
+          const formattedAddress = addr
+            ? [addr.line1, addr.line2].filter(Boolean).join(', ') +
+              (addr.state || addr.postcode ? `, ${[addr.state, addr.postcode].filter(Boolean).join(' ')}` : '')
+            : '';
+          setSettings(prev => ({
+            ...prev,
+            businessName: p?.hallName || prev.businessName,
+            businessEmail: p?.email || prev.businessEmail,
+            businessPhone: p?.contactNumber || prev.businessPhone,
+            businessAddress: formattedAddress || prev.businessAddress,
+          }));
+        };
+
+        // If sub_user, fetch parent hall owner's data for business details
+        if (profile?.role === 'sub_user' && profile?.parentUserId) {
+          const parentResp = await fetch(`/api/users/parent-data/${profile.parentUserId}`);
+          if (parentResp.ok) {
+            const parent = await parentResp.json();
+            applyProfileToSettings(parent);
+          } else {
+            applyProfileToSettings(profile);
+          }
+        } else {
+          applyProfileToSettings(profile);
+        }
+      } catch (err) {
+        console.error('Failed to load business details from user profile:', err);
       }
     };
 
@@ -169,6 +215,7 @@ export default function SettingsPayments() {
     };
 
     loadStripeAccountId();
+    loadBusinessDetails();
     loadPaymentMethods();
     loadBankDetails();
   }, [user]);
