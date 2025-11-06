@@ -125,46 +125,9 @@ const paymentData = {
   ],
 };
 
-// Cohort analysis data
-const generateCohortData = () => {
-  const cohorts = [];
-  const months = ['Jan 2025', 'Feb 2025', 'Mar 2025', 'Apr 2025', 'May 2025', 'Jun 2025'];
-  
-  months.forEach((month, monthIndex) => {
-    const cohort = { month, periods: [] };
-    for (let period = 0; period < 6; period++) {
-      const returnRate = period === 0 ? 100 : Math.max(0, 100 - period * 15 - Math.random() * 20);
-      cohort.periods.push({
-        period,
-        rate: Math.round(returnRate),
-        customers: Math.round((40 - monthIndex * 5) * (returnRate / 100)),
-      });
-    }
-    cohorts.push(cohort);
-  });
-  
-  return cohorts;
-};
+// Cohort analysis data must come from backend; no local/dummy generators
 
-// Anomaly detection
-const anomalies = [
-  {
-    date: '2025-08-15',
-    metric: 'Bookings',
-    value: 3,
-    expected: 8,
-    severity: 'high',
-    reasons: ['Public holiday', 'Website downtime', 'Competitor event'],
-  },
-  {
-    date: '2025-07-28',
-    metric: 'Revenue',
-    value: 6200,
-    expected: 4500,
-    severity: 'medium',
-    reasons: ['Corporate event', 'Wedding season', 'Premium booking'],
-  },
-];
+// Anomaly section is disabled unless provided by backend
 
 // --- Components ---
 
@@ -647,7 +610,8 @@ export default function Reports() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   
-  const cohortData = generateCohortData();
+  // Use cohorts only if provided by backend summary
+  const cohortData = reportsData.summary?.cohorts || null;
   
   // Fetch reports data
   const fetchReportsData = async () => {
@@ -1336,13 +1300,23 @@ export default function Reports() {
           </Card>
         </div>
 
-        {/* Cohort Analysis */}
+        {/* Cohort Analysis (DB-backed only) */}
         <Card>
           <CardHeader>
             <CardTitle>Customer Cohorts & Retention</CardTitle>
           </CardHeader>
           <CardContent>
-            <CohortGrid cohorts={cohortData} />
+            {loading ? (
+              <div className="h-40 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : cohortData && Array.isArray(cohortData) && cohortData.length > 0 ? (
+              <CohortGrid cohorts={cohortData} />
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-8">
+                No cohort data available
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -1,12 +1,34 @@
-import React from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { fetchBookingById } from '../services/bookingService';
 
 export default function PaymentFail() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const bookingId = searchParams.get('bookingId');
   const invoiceId = searchParams.get('invoiceId');
   const reason = searchParams.get('reason') || 'Payment was cancelled or failed.';
+  const initialBookingCode = searchParams.get('bookingCode');
+  const [bookingCode, setBookingCode] = useState(initialBookingCode || '');
+
+  useEffect(() => {
+    let isActive = true;
+    const loadBookingCode = async () => {
+      if (!bookingCode && bookingId) {
+        try {
+          const result = await fetchBookingById(bookingId);
+          if (isActive && result && result.bookingCode) {
+            setBookingCode(result.bookingCode);
+          }
+        } catch (e) {
+          // Ignore; fallback to not showing booking reference
+        }
+      }
+    };
+    loadBookingCode();
+    return () => {
+      isActive = false;
+    };
+  }, [bookingId, bookingCode]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4">
@@ -22,32 +44,18 @@ export default function PaymentFail() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left mb-6">
           <h2 className="text-red-900 font-semibold mb-1">Details</h2>
           <div className="text-red-800 text-sm grid grid-cols-1 sm:grid-cols-2 gap-y-1">
-            {bookingId && (
-              <div><span className="font-medium">Booking ID: </span><span>{bookingId}</span></div>
+            {bookingCode && (
+              <div><span className="font-medium">Booking Reference: </span><span>{bookingCode}</span></div>
             )}
             {invoiceId && (
               <div><span className="font-medium">Invoice ID: </span><span>{invoiceId}</span></div>
             )}
-            {!bookingId && !invoiceId && (
+            {!bookingCode && !invoiceId && (
               <div className="col-span-2">No reference details provided.</div>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={() => navigate('/Invoices')}
-            className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-[#0f172a] hover:bg-black text-white font-semibold"
-          >
-            Go to Invoices
-          </button>
-          <button
-            onClick={() => navigate('/Dashboard')}
-            className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-white border border-gray-300 text-[#0f172a] hover:bg-gray-50 font-semibold"
-          >
-            Go to Dashboard
-          </button>
-        </div>
       </div>
     </div>
   );
