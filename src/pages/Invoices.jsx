@@ -569,16 +569,20 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
     loadBusiness();
   }, [token]);
 
-  const gstRate = 0.1;
   const isLargeInvoice = invoice.total >= 1000;
   // Balance due should be based on finalTotal (after deposit) when available
   const invoiceGrossTotal = (invoice.finalTotal ?? invoice.total ?? 0);
-  const balanceDue = Math.max(0, invoiceGrossTotal - (invoice.paidAmount ?? 0));
-    const isQuotationPreview = invoice.bookingSource === 'quotation';
-    const quotedSubtotal = typeof invoice.subtotal === 'number' ? invoice.subtotal : Math.max(0, (invoice.total || 0) - (invoice.gst || 0));
-    const gstAmount = typeof invoice.gst === 'number' ? invoice.gst : Math.round(quotedSubtotal * gstRate * 100) / 100;
-    const depositAmount = invoice.depositPaid || 0;
-    const finalDueInclGst = isQuotationPreview ? (invoice.finalTotal || Math.max(0, (invoice.total || 0) - depositAmount)) : (invoice.total || 0);
+  const isQuotationPreview = invoice.bookingSource === 'quotation';
+  const rateDisplay = Number.isFinite(Number(invoice.taxRate)) ? Number(invoice.taxRate) : undefined;
+  const displayTotal = Number(invoice.fullAmountWithGST ?? invoice.total ?? 0);
+  const displayGst = Number(invoice.gst ?? 0);
+  const displaySubtotal = (() => {
+    const sub = Number(invoice.subtotal);
+    if (Number.isFinite(sub) && Math.abs((sub + displayGst) - displayTotal) < 0.01) return sub;
+    return Math.max(0, displayTotal - displayGst);
+  })();
+  const depositAmount = Number(invoice.depositPaid ?? 0);
+  const finalDueInclGst = Number(invoice.finalTotal ?? displayTotal);
 
   const [copiedKey, setCopiedKey] = useState(null);
   const handleCopy = useCallback((key, value) => {
@@ -743,13 +747,13 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               
               <div className="border-t pt-2 mt-2">
                 <div className="flex justify-between text-gray-600">
-                  <span>GST ({(gstRate * 100).toFixed(0)}%) on ${invoice.subtotal.toFixed(2)}</span>
-                  <span className="font-mono">${invoice.gst.toFixed(2)}</span>
+                  <span>GST ({rateDisplay !== undefined ? `${rateDisplay}%` : '—'}) on ${displaySubtotal.toFixed(2)}</span>
+                  <span className="font-mono">${displayGst.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between font-bold text-gray-900 border-t pt-2 mt-2">
-                  <span>Total (GST Inclusive)</span>
-                  <span className="font-mono">${invoice.total.toFixed(2)} AUD</span>
+                  <span>Total {invoice.taxType ? `(GST ${String(invoice.taxType)})` : ''}</span>
+                  <span className="font-mono">${displayTotal.toFixed(2)} AUD</span>
                 </div>
               </div>
               
@@ -774,15 +778,15 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               <>
                 <div className="rounded-md bg-white/70 px-3 py-2">
                   <div className="text-[11px] text-gray-500">Quoted Total</div>
-                  <div className="font-mono text-sm font-semibold">${quotedSubtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                  <div className="font-mono text-sm font-semibold">${displaySubtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                 </div>
                 <div className="rounded-md bg-white/70 px-3 py-2">
                   <div className="text-[11px] text-gray-500">Deposit</div>
                   <div className="font-mono text-sm font-semibold">${depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                 </div>
                 <div className="rounded-md bg-white/70 px-3 py-2">
-                  <div className="text-[11px] text-gray-500">GST (10%)</div>
-                  <div className="font-mono text-sm font-semibold">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-gray-500">GST ({rateDisplay !== undefined ? `${rateDisplay}%` : '—'})</div>
+                  <div className="font-mono text-sm font-semibold">${displayGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                 </div>
                 <div className="rounded-md bg-white/70 px-3 py-2">
                   <div className="text-[11px] text-gray-500">Final Due (incl. GST)</div>
@@ -792,12 +796,12 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
             ) : (
               <>
                 <div className="rounded-md bg-white/70 px-3 py-2">
-                  <div className="text-[11px] text-gray-500">GST (10%)</div>
-                  <div className="font-mono text-sm font-semibold whitespace-nowrap">${gstAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-gray-500">GST ({rateDisplay !== undefined ? `${rateDisplay}%` : '—'})</div>
+                  <div className="font-mono text-sm font-semibold whitespace-nowrap">${displayGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>
                 </div>
                 <div className="rounded-md bg-white/70 px-3 py-2">
-                  <div className="text-[11px] text-gray-500">Total incl. GST</div>
-                  <div className="font-mono text-sm font-semibold text-green-700 whitespace-nowrap">${(invoice.total || (quotedSubtotal + gstAmount)).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
+                  <div className="text-[11px] text-gray-500">Total</div>
+                  <div className="font-mono text-sm font-semibold text-green-700 whitespace-nowrap">${displayTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</div>
                 </div>
               </>
             )}
@@ -843,75 +847,34 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               
               <div className="bg-white rounded-lg p-4 border border-blue-100">
                 <div className="space-y-3 text-sm">
-                  {(() => {
-                    const rel = bookingsData.find(b => (b.id && b.id === (invoice.bookingId || invoice.booking)) || (b.booking && b.booking === invoice.booking) || (b.bookingCode && b.bookingCode === (invoice.bookingCode || invoice.booking)));
-                    const rate = Number.isFinite(Number(invoice.taxRate)) ? Number(invoice.taxRate) : 10;
-                    const totalIncl = Number(
-                      invoice.fullAmountWithGST ??
-                      rel?.payment_details?.total_amount ??
-                      ((Number(invoice.depositPaid ?? 0) > 0)
-                        ? (Number(invoice.finalTotal ?? 0) + Number(invoice.depositPaid ?? 0))
-                        : (invoice.total ?? 0))
-                    );
-                    // Prefer DB-provided subtotal/gst; if missing, try from booking tax; else leave as-is
-                    let sub = Number(invoice.subtotal);
-                    let gst = Number(invoice.gst);
-                    const bookingGst = Number(rel?.payment_details?.tax?.tax_amount ?? rel?.payment_details?.tax?.gst);
-                    if (!Number.isFinite(sub) || !Number.isFinite(gst) || Math.abs((sub + gst) - totalIncl) > 0.01) {
-                      if (Number.isFinite(bookingGst)) {
-                        gst = bookingGst;
-                        sub = Math.max(0, totalIncl - gst);
-                      } else {
-                        // Last-resort display-only derivation
-                        const base = Math.round((totalIncl / (1 + (rate / 100))) * 100) / 100;
-                        const g = Math.round((totalIncl - base) * 100) / 100;
-                        sub = base;
-                        gst = g;
-                      }
-                    }
-                    const deposit = Number(invoice.depositPaid ?? rel?.payment_details?.deposit_amount ?? 0);
-                    const due = Number.isFinite(Number(invoice.finalTotal)) ? Number(invoice.finalTotal) : Number(rel?.payment_details?.final_due ?? Math.max(0, totalIncl - deposit));
-                    return (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium">Subtotal:</span>
-                          <span className="font-mono font-semibold">${sub.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium">GST ({rate}%):</span>
-                          <span className="font-mono font-semibold">${gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-t pt-2">
-                          <span className="text-gray-700 font-semibold">Total Amount:</span>
-                          <span className="font-mono font-bold text-gray-900">${totalIncl.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-t pt-2 bg-blue-50 rounded px-2 py-1">
-                          <span className="text-blue-800 font-bold flex items-center gap-1">
-                            <span className="text-blue-600">💰</span>
-                            Deposit Paid:
-                          </span>
-                          <span className="font-mono text-blue-800 font-bold">-${deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-t-2 border-blue-200 pt-3 bg-green-50 rounded px-2 py-2">
-                          <span className="text-green-800 font-bold text-base flex items-center gap-1">
-                            <span className="text-green-600">💳</span>
-                            Amount You Need to Pay:
-                          </span>
-                          <span className="font-mono text-green-800 font-bold text-lg">${due.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                
-                {/* Calculation explanation */}
-                <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600 text-center">
-                  {(() => {
-                    const totalIncl = Number(invoice.fullAmountWithGST ?? invoice.total ?? 0);
-                    const deposit = Number(invoice.depositPaid ?? 0);
-                    const due = Number.isFinite(Number(invoice.finalTotal)) ? Number(invoice.finalTotal) : Math.max(0, totalIncl - deposit);
-                    return (<><strong>Calculation:</strong> ${totalIncl.toLocaleString('en-AU', { minimumFractionDigits: 2 })} - ${deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })} = ${due.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</>);
-                  })()}
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Subtotal:</span>
+                    <span className="font-mono font-semibold">${displaySubtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">GST ({rateDisplay !== undefined ? `${rateDisplay}%` : '—'}):</span>
+                    <span className="font-mono font-semibold">${displayGst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t pt-2">
+                    <span className="text-gray-700 font-semibold">Total Amount:</span>
+                    <span className="font-mono font-bold text-gray-900">${displayTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t pt-2 bg-blue-50 rounded px-2 py-1">
+                    <span className="text-blue-800 font-bold flex items-center gap-1">
+                      <span className="text-blue-600">💰</span>
+                      Deposit Paid:
+                    </span>
+                    <span className="font-mono text-blue-800 font-bold">-${depositAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  {Number.isFinite(Number(invoice.finalTotal)) && (
+                    <div className="flex justify-between items-center border-t-2 border-blue-200 pt-3 bg-green-50 rounded px-2 py-2">
+                      <span className="text-green-800 font-bold text-base flex items-center gap-1">
+                        <span className="text-green-600">💳</span>
+                        Amount You Need to Pay:
+                      </span>
+                      <span className="font-mono text-green-800 font-bold text-lg">${Number(invoice.finalTotal).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -940,19 +903,7 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg p-4 text-center border-2 border-dashed border-gray-300">
-            <p className="text-xs text-gray-600 uppercase tracking-wide mb-1">Balance Due</p>
-            <p className={`text-2xl font-bold font-mono ${
-              balanceDue > 0 ? 'text-red-600' : 'text-green-600'
-            }`}>
-              ${balanceDue.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
-            </p>
-            {balanceDue > 0 && invoice.status === 'OVERDUE' && (
-              <p className="text-xs text-red-600 mt-1 font-medium">
-                ⏰ {Math.ceil((new Date() - invoice.dueDate) / (1000 * 60 * 60 * 24))} days overdue
-              </p>
-            )}
-          </div>
+          {/* Balance Due block intentionally omitted */}
         </motion.div>
 
         {/* Action Buttons with Gradient Magic */}
