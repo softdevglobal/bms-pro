@@ -22,6 +22,8 @@ import Invoices from "./Invoices";
 import Deposits from "./Deposits";
 import Quotations from "./Quotations";
 import Login from "./Login";
+import ForgotPassword from "./ForgotPassword";
+import ResetPassword from "./ResetPassword";
 
 import Resources from "./Resources";
 
@@ -169,6 +171,8 @@ function PagesContent() {
             {/* Redirect root to /login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Public payment result routes for Stripe redirects */}
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/fail" element={<PaymentFail />} />

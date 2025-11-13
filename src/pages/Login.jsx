@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -18,6 +19,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setLoading(true);
     try {
       // First, authenticate with Firebase Client SDK
@@ -70,6 +72,7 @@ export default function Login() {
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-600">BMSPRO</h2>
         <h2 className="text-xl font-bold mb-6 text-center">Admin Login</h2>
         {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
+        {info && <div className="mb-4 text-green-600 text-sm">{info}</div>}
         <div className="mb-4">
           <label className="block mb-1 font-medium">Email</label>
           <input
@@ -102,6 +105,11 @@ export default function Login() {
               )}
             </button>
           </div>
+        </div>
+        <div className="mb-4 text-right">
+          <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
+            Forgot password?
+          </Link>
         </div>
         <button
           type="submit"
