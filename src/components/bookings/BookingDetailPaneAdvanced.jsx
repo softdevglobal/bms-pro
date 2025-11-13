@@ -120,6 +120,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
     ? paymentDetails.tax.tax_amount
     : (totalInclGst - (totalInclGst / (1 + (gstPercent / 100))));
   const taxTypeResolved = paymentDetails?.tax?.tax_type || booking.taxType || 'Inclusive';
+  const isExclusiveTax = String(taxTypeResolved || '').toLowerCase() === 'exclusive';
   const subtotalResolved = (typeof paymentDetails?.tax?.tax_amount === 'number')
     ? (totalInclGst - taxAmount)
     : (taxTypeResolved === 'Exclusive'
@@ -326,7 +327,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
                         <div className="text-xs text-blue-700">
                           {booking.depositType === 'Percentage' && booking.depositValue
                             ? `${booking.depositValue}%`
-                            : `${Math.round(((depositAmount / (totalInclGst || 1)) * 100))}%`} of total amount (GST inclusive)
+                            : `${Math.round(((depositAmount / (totalInclGst || 1)) * 100))}%`} of total amount (${isExclusiveTax ? 'GST exclusive' : 'GST inclusive'})
                         </div>
                       )}
                     </div>

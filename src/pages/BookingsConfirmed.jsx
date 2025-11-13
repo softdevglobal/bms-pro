@@ -60,7 +60,13 @@ const transformBookingData = (backendBooking) => {
     start: startDateTime,
     end: endDateTime,
     balance: backendBooking.calculatedPrice || 0,
-    deposit: 'Paid', // Default for confirmed bookings
+    // Derive real deposit status to match Deposits page
+    deposit: (() => {
+      const p = backendBooking.payment_details || {};
+      const hasDeposit = Number(p.deposit_amount ?? backendBooking.depositAmount ?? 0) > 0;
+      if (!hasDeposit) return '—';
+      return p.deposit_paid ? 'Paid' : 'Unpaid';
+    })(),
     bond: 0, // Could be enhanced later
     docs: { 
       id: true, // Default for confirmed bookings
@@ -78,6 +84,7 @@ const transformBookingData = (backendBooking) => {
     customerAvatar: backendBooking.customerAvatar,
     bookingSource: backendBooking.bookingSource,
     priceDetails: backendBooking.priceDetails,
+    payment_details: backendBooking.payment_details || null,
   };
 };
 
@@ -220,6 +227,7 @@ export default function BookingsConfirmed() {
     withAddOns: false,
     publicHoliday: false,
   });
+  const [updatingDepositId, setUpdatingDepositId] = useState(null);
 
   // Fetch confirmed bookings from backend
   const fetchConfirmedBookings = useCallback(async (isRefresh = false) => {
@@ -563,6 +571,57 @@ export default function BookingsConfirmed() {
     printWindow.document.close();
   }, [filteredBookings, selectedRows]);
 
+  // Toggle deposit paid status to mirror Deposits page behavior
+  const toggleDepositPaid = useCallback(async (booking) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+      const currentPayment = booking.payment_details || {};
+      const nextPaid = !Boolean(currentPayment.deposit_paid);
+      const newPayment = {
+        ...currentPayment,
+        deposit_paid: nextPaid,
+        paid_at: nextPaid ? new Date().toISOString() : null,
+      };
+      setUpdatingDepositId(booking.id);
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_details: newPayment })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`${res.status} ${res.statusText} - ${data.message || 'Unknown error'}`);
+      }
+      const deriveDepositLabel = (p) => {
+        const hasDeposit = Number(p.deposit_amount || 0) > 0;
+        if (!hasDeposit) return '—';
+        return p.deposit_paid ? 'Paid' : 'Unpaid';
+      };
+      setBookings(prev =>
+        prev.map(b => b.id === booking.id
+          ? { ...b, payment_details: newPayment, deposit: deriveDepositLabel(newPayment) }
+          : b
+        )
+      );
+      setFilteredBookings(prev =>
+        prev.map(b => b.id === booking.id
+          ? { ...b, payment_details: newPayment, deposit: deriveDepositLabel(newPayment) }
+          : b
+        )
+      );
+    } catch (err) {
+      setToast({
+        isVisible: true,
+        type: 'error',
+        title: 'Failed to update deposit',
+        message: err.message
+      });
+    } finally {
+      setUpdatingDepositId(null);
+    }
+  }, []);
+
   // Handle complete booking action
   const handleCompleteBooking = useCallback((bookingId) => {
     // Find the booking to get customer name for confirmation
@@ -799,9 +858,23 @@ export default function BookingsConfirmed() {
                       <TableCell className="w-[110px] whitespace-nowrap px-2 py-1">{format(booking.end, 'dd MMM HH:mm')}</TableCell>
                       <TableCell className="w-[80px] text-right font-mono px-2 py-1">${booking.balance.toFixed(2)}</TableCell>
                       <TableCell className="w-[60px] whitespace-nowrap px-2 py-1">
-                        <Badge variant={booking.deposit === 'Paid' ? 'secondary' : 'destructive'}>
-                          {booking.deposit}
-                        </Badge>
+                        {(() => {
+                          const p = booking.payment_details || {};
+                          const hasDeposit = Number(p.deposit_amount || 0) > 0;
+                          const paid = Boolean(p.deposit_paid);
+                          if (!hasDeposit) {
+                            return <Badge className="bg-slate-100 text-slate-800 border-slate-200">—</Badge>;
+                          }
+                          return paid ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5" /> Paid
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" /> Unpaid
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="w-[50px] text-right px-2 py-1">{booking.addOns}</TableCell>
                       <TableCell className="w-[120px] whitespace-nowrap px-2 py-1">
