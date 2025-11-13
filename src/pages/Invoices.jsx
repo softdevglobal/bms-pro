@@ -1136,8 +1136,17 @@ export default function Invoices() {
   }, [invoicesData, searchTerm, activeStatuses, sortConfig]);
 
   // Filter bookings for invoice creation with search
+  // Only show bookings that do NOT already have an invoice created
   const filteredBookings = useMemo(() => {
-    let filtered = bookingsData.filter(b => ['CONFIRMED', 'PENDING', 'COMPLETED'].includes(b.status));
+    // Build a set of booking IDs that already have invoices
+    const invoicedBookingIds = new Set(
+      (invoicesData || []).map(inv => inv.bookingId || null).filter(Boolean)
+    );
+
+    // Keep only eligible bookings (not yet invoiced)
+    let filtered = bookingsData
+      .filter(b => ['CONFIRMED', 'PENDING', 'COMPLETED'].includes(b.status))
+      .filter(b => !invoicedBookingIds.has(b.id));
 
     // Search filter for bookings
     if (bookingSearchTerm) {
@@ -1155,7 +1164,7 @@ export default function Invoices() {
     filtered.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate));
 
     return filtered;
-  }, [bookingsData, bookingSearchTerm]);
+  }, [bookingsData, invoicesData, bookingSearchTerm]);
 
   // Event handlers
   const handleSort = useCallback((key) => {
