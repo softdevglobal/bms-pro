@@ -134,6 +134,8 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
     ? paymentDetails.final_due
     : Math.max(0, totalInclGst - (depositAmount || 0));
   const paidRatio = Math.max(0, Math.min(1, totalInclGst > 0 ? (depositAmount || 0) / totalInclGst : 0));
+  // Only show GST breakdown for confirmed or completed bookings
+  const showFullGst = ['confirmed', 'completed', 'CONFIRMED', 'COMPLETED'].includes(String(booking?.status));
 
   return (
     <motion.div
@@ -282,15 +284,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
             <h4 className="font-semibold mb-3 flex items-center gap-2"><DollarSign className="h-4 w-4" />Payment Breakdown</h4>
             <div className="space-y-2">
                 {/* Price Breakdown - Show GST details only for confirmed/completed bookings */}
-                {booking.status === 'pending' || booking.status === 'PENDING_REVIEW' ? (
-                  // For pending bookings, show only base price
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Base Price:</span>
-                      <span className="font-semibold text-gray-900">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
-                    </div>
-                  </div>
-                ) : (
+                {showFullGst ? (
                   // For confirmed/completed bookings, show full GST breakdown
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
@@ -308,6 +302,14 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>Tax Type:</span>
                       <span className="capitalize">{taxTypeResolved}</span>
+                    </div>
+                  </div>
+                ) : (
+                  // For non-confirmed bookings (pending/tentative/cancelled), show only base price without GST
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Base Price:</span>
+                      <span className="font-semibold text-gray-900">${(booking.calculatedPrice || booking.totalValue || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
                     </div>
                   </div>
                 )}
@@ -399,9 +401,11 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" className="w-full" onClick={() => navigate(createPageUrl('Invoices'))}>
-              <FileText className="mr-2 h-4 w-4" /> Invoice
-            </Button>
+            {!['cancelled', 'CANCELLED'].includes(String(booking?.status)) && (
+              <Button variant="outline" className="w-full" onClick={() => navigate(createPageUrl('Invoices'))}>
+                <FileText className="mr-2 h-4 w-4" /> Invoice
+              </Button>
+            )}
             <Button variant="outline" className="w-full" onClick={() => onEdit && onEdit(booking)}>
               <Edit className="mr-2 h-4 w-4" /> Edit
             </Button>

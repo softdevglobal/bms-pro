@@ -453,7 +453,15 @@ const InvoicesTable = ({
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       <span className="font-mono font-semibold text-gray-900">
-                        ${invoice.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
+                        ${(() => {
+                          const fullIncl = Number(
+                            invoice.fullAmountWithGST ??
+                            ((Number(invoice.depositPaid ?? 0) > 0)
+                              ? (Number(invoice.finalTotal ?? 0) + Number(invoice.depositPaid ?? 0))
+                              : (invoice.total ?? 0))
+                          );
+                          return fullIncl.toLocaleString('en-AU', { minimumFractionDigits: 2 });
+                        })()} AUD
                       </span>
                       <div className="flex flex-wrap gap-1 justify-end mt-1">
                         {invoice.depositPaid > 0 && (
@@ -835,37 +843,75 @@ const InvoiceDetailPane = ({ invoice, onClose, token }) => {
               
               <div className="bg-white rounded-lg p-4 border border-blue-100">
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 font-medium">Subtotal:</span>
-                    <span className="font-mono font-semibold">${invoice.subtotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 font-medium">GST (10%):</span>
-                    <span className="font-mono font-semibold">${invoice.gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t pt-2">
-                    <span className="text-gray-700 font-semibold">Total Amount:</span>
-                    <span className="font-mono font-bold text-gray-900">${invoice.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t pt-2 bg-blue-50 rounded px-2 py-1">
-                    <span className="text-blue-800 font-bold flex items-center gap-1">
-                      <span className="text-blue-600">💰</span>
-                      Deposit Paid:
-                    </span>
-                    <span className="font-mono text-blue-800 font-bold">-${invoice.depositPaid.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-t-2 border-blue-200 pt-3 bg-green-50 rounded px-2 py-2">
-                    <span className="text-green-800 font-bold text-base flex items-center gap-1">
-                      <span className="text-green-600">💳</span>
-                      Amount You Need to Pay:
-                    </span>
-                    <span className="font-mono text-green-800 font-bold text-lg">${invoice.finalTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
-                  </div>
+                  {(() => {
+                    const rel = bookingsData.find(b => (b.id && b.id === (invoice.bookingId || invoice.booking)) || (b.booking && b.booking === invoice.booking) || (b.bookingCode && b.bookingCode === (invoice.bookingCode || invoice.booking)));
+                    const rate = Number.isFinite(Number(invoice.taxRate)) ? Number(invoice.taxRate) : 10;
+                    const totalIncl = Number(
+                      invoice.fullAmountWithGST ??
+                      rel?.payment_details?.total_amount ??
+                      ((Number(invoice.depositPaid ?? 0) > 0)
+                        ? (Number(invoice.finalTotal ?? 0) + Number(invoice.depositPaid ?? 0))
+                        : (invoice.total ?? 0))
+                    );
+                    // Prefer DB-provided subtotal/gst; if missing, try from booking tax; else leave as-is
+                    let sub = Number(invoice.subtotal);
+                    let gst = Number(invoice.gst);
+                    const bookingGst = Number(rel?.payment_details?.tax?.tax_amount ?? rel?.payment_details?.tax?.gst);
+                    if (!Number.isFinite(sub) || !Number.isFinite(gst) || Math.abs((sub + gst) - totalIncl) > 0.01) {
+                      if (Number.isFinite(bookingGst)) {
+                        gst = bookingGst;
+                        sub = Math.max(0, totalIncl - gst);
+                      } else {
+                        // Last-resort display-only derivation
+                        const base = Math.round((totalIncl / (1 + (rate / 100))) * 100) / 100;
+                        const g = Math.round((totalIncl - base) * 100) / 100;
+                        sub = base;
+                        gst = g;
+                      }
+                    }
+                    const deposit = Number(invoice.depositPaid ?? rel?.payment_details?.deposit_amount ?? 0);
+                    const due = Number.isFinite(Number(invoice.finalTotal)) ? Number(invoice.finalTotal) : Number(rel?.payment_details?.final_due ?? Math.max(0, totalIncl - deposit));
+                    return (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">Subtotal:</span>
+                          <span className="font-mono font-semibold">${sub.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 font-medium">GST ({rate}%):</span>
+                          <span className="font-mono font-semibold">${gst.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t pt-2">
+                          <span className="text-gray-700 font-semibold">Total Amount:</span>
+                          <span className="font-mono font-bold text-gray-900">${totalIncl.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t pt-2 bg-blue-50 rounded px-2 py-1">
+                          <span className="text-blue-800 font-bold flex items-center gap-1">
+                            <span className="text-blue-600">💰</span>
+                            Deposit Paid:
+                          </span>
+                          <span className="font-mono text-blue-800 font-bold">-${deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t-2 border-blue-200 pt-3 bg-green-50 rounded px-2 py-2">
+                          <span className="text-green-800 font-bold text-base flex items-center gap-1">
+                            <span className="text-green-600">💳</span>
+                            Amount You Need to Pay:
+                          </span>
+                          <span className="font-mono text-green-800 font-bold text-lg">${due.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
                 
                 {/* Calculation explanation */}
                 <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600 text-center">
-                  <strong>Calculation:</strong> ${invoice.total.toLocaleString('en-AU', { minimumFractionDigits: 2 })} - ${invoice.depositPaid.toLocaleString('en-AU', { minimumFractionDigits: 2 })} = ${invoice.finalTotal.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD
+                  {(() => {
+                    const totalIncl = Number(invoice.fullAmountWithGST ?? invoice.total ?? 0);
+                    const deposit = Number(invoice.depositPaid ?? 0);
+                    const due = Number.isFinite(Number(invoice.finalTotal)) ? Number(invoice.finalTotal) : Math.max(0, totalIncl - deposit);
+                    return (<><strong>Calculation:</strong> ${totalIncl.toLocaleString('en-AU', { minimumFractionDigits: 2 })} - ${deposit.toLocaleString('en-AU', { minimumFractionDigits: 2 })} = ${due.toLocaleString('en-AU', { minimumFractionDigits: 2 })} AUD</>);
+                  })()}
                 </div>
               </div>
             </div>
