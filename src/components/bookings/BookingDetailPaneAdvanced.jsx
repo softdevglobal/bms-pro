@@ -105,7 +105,17 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
   const totalInclGst = typeof paymentDetails.total_amount === 'number'
     ? paymentDetails.total_amount
     : (booking.calculatedPrice || booking.totalValue || 0);
-  const gstPercent = Number(paymentDetails?.tax?.gst) || 10;
+  // Resolve GST rate percentage from system-provided rate first, otherwise derive from amounts
+  const gstPercent = (() => {
+    const systemRate = Number(paymentDetails?.tax?.tax_rate ?? booking?.taxRate);
+    if (Number.isFinite(systemRate)) return systemRate;
+    const taxAmt = Number(paymentDetails?.tax?.tax_amount);
+    if (Number.isFinite(taxAmt)) {
+      const sub = Math.max(0, totalInclGst - taxAmt);
+      if (sub > 0) return Math.round((taxAmt / sub) * 100);
+    }
+    return 10;
+  })();
   const taxAmount = typeof paymentDetails?.tax?.tax_amount === 'number'
     ? paymentDetails.tax.tax_amount
     : (totalInclGst - (totalInclGst / (1 + (gstPercent / 100))));
