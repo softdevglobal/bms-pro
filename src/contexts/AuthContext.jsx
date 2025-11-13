@@ -111,7 +111,18 @@ export const AuthProvider = ({ children }) => {
             ]);
             
             if (userData) {
-              const finalUser = { role, ...userData };
+              // Enrich with Firebase fields as fallbacks (photoURL/displayName)
+              const enriched = {
+                role,
+                ...userData
+              };
+              if (!enriched.profilePicture && firebaseUser?.photoURL) {
+                enriched.profilePicture = firebaseUser.photoURL;
+              }
+              if (!enriched.name && (firebaseUser?.displayName || userData?.hallName || userData?.email)) {
+                enriched.name = firebaseUser?.displayName || userData?.hallName || userData?.email;
+              }
+              const finalUser = enriched;
               console.log('Initial user loading - Setting user object:', finalUser);
               setUser(finalUser);
             } else {
@@ -159,7 +170,19 @@ export const AuthProvider = ({ children }) => {
     ]);
     
     if (userData) {
-      const finalUser = { role, ...userData };
+      // Merge Firebase auth current user info as fallback
+      const current = auth.currentUser;
+      const enriched = {
+        role,
+        ...userData
+      };
+      if (!enriched.profilePicture && current?.photoURL) {
+        enriched.profilePicture = current.photoURL;
+      }
+      if (!enriched.name && (current?.displayName || userData?.hallName || userData?.email)) {
+        enriched.name = current?.displayName || userData?.hallName || userData?.email;
+      }
+      const finalUser = enriched;
       console.log('Setting user object:', finalUser);
       setUser(finalUser);
     } else {

@@ -81,7 +81,7 @@ export default function SettingsGeneral() {
       if (contextSettings) {
         setSettings(contextSettings);
       }
-      setMessage({ type: 'error', text: '⚠️ Couldn\'t load your settings, but we\'re using defaults for now.' });
+      // Quiet fallback: don't show an alert banner on page load
     } finally {
       setLoading(false);
     }
@@ -491,8 +491,8 @@ export default function SettingsGeneral() {
           </Card>
         )}
 
-        {/* Password Change - Only for hall owners */}
-        {user?.role === 'hall_owner' && (
+        {/* Password Change - Hall owners and Super Admins */}
+        {(user?.role === 'hall_owner' || user?.role === 'super_admin') && (
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
