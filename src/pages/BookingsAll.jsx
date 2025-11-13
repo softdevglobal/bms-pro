@@ -714,7 +714,7 @@ export default function BookingsAll() {
       type: 'cancel',
       title: 'Cancel Booking',
       message: `Are you sure you want to cancel the booking for ${booking.customer.name}?`,
-      confirmText: 'Cancel Order',
+      confirmText: 'Cancel Booking',
       cancelText: 'Keep Booking',
       bookingDetails: {
         customerName: booking.customer.name,
@@ -1191,6 +1191,7 @@ export default function BookingsAll() {
               }}
               onEdit={handleEdit}
               onAccept={(b) => handleConfirmOrder(b.id)}
+              onDecline={(b) => handleCancelOrder(b.id)}
               
             />
           )}

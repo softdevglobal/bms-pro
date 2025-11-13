@@ -54,6 +54,7 @@ const transformBookingData = (backendBooking) => {
   
   return {
     id: backendBooking.id,
+    bookingCode: backendBooking.bookingCode,
     customer: {
       name: backendBooking.customerName,
       email: backendBooking.customerEmail,
@@ -712,8 +713,8 @@ export default function BookingsCancelled() {
               {/* Key facts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-lg border bg-gradient-to-br from-gray-50 to-white p-3">
-                  <div className="text-xs text-gray-500 mb-1">Booking ID</div>
-                  <div className="font-mono text-sm break-all text-gray-800">{viewBooking.id}</div>
+                  <div className="text-xs text-gray-500 mb-1">Booking Reference</div>
+                  <div className="font-mono text-sm break-all text-gray-800">{viewBooking.bookingCode || 'Not available'}</div>
                 </div>
                 <div className="rounded-lg border bg-gradient-to-br from-gray-50 to-white p-3">
                   <div className="text-xs text-gray-500 mb-1">Email</div>

@@ -61,7 +61,7 @@ const PaymentStatus = ({ label, amount, status }) => {
   );
 };
 
-const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept }) => {
+const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, sendingPayLink = false, onAccept, onDecline }) => {
   const navigate = useNavigate();
   // Debug: Log booking data to see what's available
   console.log('BookingDetailPaneAdvanced - booking data:', {
@@ -394,7 +394,7 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
         <div className="space-y-2">
           {(booking.status === 'pending' || booking.status === 'PENDING_REVIEW') && (
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700">Decline</Button>
+              <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700" onClick={() => onDecline && onDecline(booking)}>Decline</Button>
               <Button className="bg-green-600 hover:bg-green-700" onClick={() => onAccept && onAccept(booking)}>Accept Booking</Button>
             </div>
           )}
