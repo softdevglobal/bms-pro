@@ -490,6 +490,18 @@ export default function BookingsAll() {
     // Apply sorting with stable sort
     if (sortConfig.column && sortConfig.direction) {
       filtered.sort((a, b) => {
+        // Always push fully-resolved bookings (balance 0 or completed) to the bottom
+        const isResolved = (bk) => {
+          const statusStr = String(bk.status || '').toLowerCase();
+          return Number(bk.balance || 0) <= 0 || statusStr === 'completed' || statusStr === 'completed'.toUpperCase();
+        };
+        const aResolved = isResolved(a);
+        const bResolved = isResolved(b);
+        if (aResolved !== bResolved) {
+          // If a is resolved and b is not, place a after b
+          return aResolved ? 1 : -1;
+        }
+
         const aValue = getColumnValue(a, sortConfig.column);
         const bValue = getColumnValue(b, sortConfig.column);
         

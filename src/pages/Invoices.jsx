@@ -1094,6 +1094,10 @@ export default function Invoices() {
   const filteredInvoices = useMemo(() => {
     let filtered = [...invoicesData];
 
+    // Always exclude fully paid invoices from the main Invoices tab view;
+    // paid invoices are displayed in the dedicated "Paid" tab.
+    filtered = filtered.filter(inv => inv.status !== 'PAID');
+
     // Search filter with intelligent matching
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
