@@ -41,6 +41,8 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [userToSuspend, setUserToSuspend] = useState(null);
   
   // Profile picture states
   const [profilePictureFile, setProfilePictureFile] = useState(null);
@@ -77,6 +79,7 @@ export default function Users() {
       filteredUsers = filteredUsers.filter(u =>
         (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.role || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.status || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.hallName || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.contactNumber || '').toLowerCase().includes(search.toLowerCase()) ||
         (u.address?.line1 || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -115,6 +118,38 @@ export default function Users() {
   const handleEditUser = (user) => {
     setEditingUser(user);
     setShowEditModal(true);
+  };
+
+  const openSuspendModal = (user) => {
+    if (!user || user.role !== 'hall_owner') return;
+    setUserToSuspend(user);
+    setShowSuspendModal(true);
+  };
+
+  const confirmToggleSuspend = async () => {
+    if (!userToSuspend) return;
+    try {
+      const targetStatus = userToSuspend.status === 'suspended' ? 'active' : 'suspended';
+      const response = await fetch(`/api/users/${userToSuspend.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: targetStatus }),
+      });
+      if (response.ok) {
+        const updatedUsers = await fetch('/api/users').then(res => res.json());
+        setUsers(updatedUsers);
+        setFiltered(updatedUsers);
+        setSuccessMessage(`User ${targetStatus === 'suspended' ? 'suspended' : 'activated'} successfully!`);
+        setTimeout(() => setSuccessMessage(''), 3000);
+        setShowSuspendModal(false);
+        setUserToSuspend(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to update status');
+      }
+    } catch (err) {
+      setError('Failed to update status');
+    }
   };
 
   const handleDeleteUser = (user) => {
@@ -519,6 +554,7 @@ export default function Users() {
                 <TableHead>Profile</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Hall Name</TableHead>
                 <TableHead>Contact Number</TableHead>
                 <TableHead>Address</TableHead>
@@ -528,7 +564,7 @@ export default function Users() {
             <TableBody>
               {hallOwners.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <UsersIcon className="h-8 w-8 text-muted-foreground" />
                       <p className="text-muted-foreground">No hall owners found.</p>
@@ -557,6 +593,11 @@ export default function Users() {
                           {user.role}
                         </Badge>
                       ) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.status === 'suspended' ? 'destructive' : 'secondary'}>
+                        {user.status || 'active'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {user.hallName ? (
@@ -598,6 +639,15 @@ export default function Users() {
                             >
                               <span className="sr-only">Edit</span>
                               ✏️
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={`h-8 w-8 p-0 ${user.status === 'suspended' ? 'text-green-600 hover:text-green-700' : 'text-amber-600 hover:text-amber-700'}`}
+                              onClick={() => openSuspendModal(user)}
+                              title={user.status === 'suspended' ? 'Activate' : 'Suspend'}
+                            >
+                              {user.status === 'suspended' ? '▶️' : '⏸️'}
                             </Button>
                             <Button 
                               variant="ghost" 
@@ -692,6 +742,84 @@ export default function Users() {
           </CardContent>
         </Card>
       )}
+
+      {/* Suspend/Activate Confirmation Modal */}
+      <Dialog open={showSuspendModal} onOpenChange={setShowSuspendModal}>
+        <DialogContent className="w-[90vw] max-w-sm mx-auto">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-amber-100 rounded-full">
+              <div className="w-4 h-4 text-amber-600 flex items-center justify-center text-sm">
+                ⏸️
+              </div>
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold text-gray-900">
+                {userToSuspend?.status === 'suspended' ? 'Activate User' : 'Suspend User'}
+              </DialogTitle>
+              <p className="text-xs text-gray-500">Please confirm this action</p>
+            </div>
+          </div>
+
+          {userToSuspend && (
+            <div className="mb-4">
+              <div className="bg-gray-50 rounded-md p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-gray-200 rounded-md">
+                    <User className="h-3 w-3 text-gray-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{userToSuspend.email}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant={getRoleBadgeVariant(userToSuspend.role)} className="text-xs">
+                        {userToSuspend.role}
+                      </Badge>
+                      <Badge variant={userToSuspend.status === 'suspended' ? 'destructive' : 'secondary'} className="text-xs">
+                        {userToSuspend.status || 'active'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={`${userToSuspend?.status === 'suspended' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'} border rounded-md p-3 mb-4`}>
+            <div className="flex items-start gap-2">
+              <div className={`w-3 h-3 mt-0.5 text-xs ${userToSuspend?.status === 'suspended' ? 'text-green-600' : 'text-amber-600'}`}>⚠️</div>
+              <div>
+                <p className={`text-xs font-medium ${userToSuspend?.status === 'suspended' ? 'text-green-800' : 'text-amber-800'}`}>
+                  {userToSuspend?.status === 'suspended' ? 'Activate account' : 'Suspend account'}
+                </p>
+                <p className={`text-xs mt-1 ${userToSuspend?.status === 'suspended' ? 'text-green-700' : 'text-amber-700'}`}>
+                  {userToSuspend?.status === 'suspended'
+                    ? 'This will restore access to the system.'
+                    : 'The user will be unable to log in and access the system.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSuspendModal(false);
+                setUserToSuspend(null);
+              }}
+              className="flex-1 sm:flex-none sm:px-4 h-8 text-sm"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={userToSuspend?.status === 'suspended' ? 'default' : 'destructive'}
+              onClick={confirmToggleSuspend}
+              className={`flex-1 sm:flex-none sm:px-4 h-8 text-sm ${userToSuspend?.status === 'suspended' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+            >
+              {userToSuspend?.status === 'suspended' ? 'Activate' : 'Suspend'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add User Modal */}
       <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
