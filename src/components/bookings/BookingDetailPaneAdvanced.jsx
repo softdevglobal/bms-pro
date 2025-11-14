@@ -133,7 +133,16 @@ const BookingDetailPaneAdvanced = ({ booking, onClose, onEdit, onSendPayLink, se
   const finalDueResolved = (typeof paymentDetails?.final_due === 'number')
     ? paymentDetails.final_due
     : Math.max(0, totalInclGst - (depositAmount || 0));
-  const paidRatio = Math.max(0, Math.min(1, totalInclGst > 0 ? (depositAmount || 0) / totalInclGst : 0));
+  // Treat booking as fully paid when backend indicates no amount due, explicitly marked as paid,
+  // or the booking has been completed.
+  const isFullyPaid = Boolean(
+    (typeof paymentDetails?.final_due === 'number' && Number(paymentDetails.final_due) <= 0) ||
+    paymentDetails?.final_paid === true ||
+    ['completed', 'COMPLETED'].includes(String(booking?.status))
+  );
+  const paidRatio = isFullyPaid
+    ? 1
+    : Math.max(0, Math.min(1, totalInclGst > 0 ? ((depositPaid ? (depositAmount || 0) : 0) / totalInclGst) : 0));
   // Only show GST breakdown for confirmed or completed bookings
   const showFullGst = ['confirmed', 'completed', 'CONFIRMED', 'COMPLETED'].includes(String(booking?.status));
 

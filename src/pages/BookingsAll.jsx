@@ -67,6 +67,18 @@ const transformBookingData = (backendBooking) => {
     });
   }
   
+  // Resolve balance with minimal coupling to Stripe flows:
+  // - If backend marks final_due as 0, show zero balance
+  // - If status is completed, also show zero balance
+  // - Otherwise fall back to the calculated/base price (legacy behaviour)
+  const paymentDetails = backendBooking.payment_details || {};
+  const statusLower = String(backendBooking.status || '').toLowerCase();
+  const isCompleted = statusLower === 'completed';
+  const hasZeroFinalDue = typeof paymentDetails.final_due === 'number' && Number(paymentDetails.final_due) <= 0;
+  const resolvedBalance = (hasZeroFinalDue || isCompleted)
+    ? 0
+    : (backendBooking.calculatedPrice || 0);
+  
   
   return {
     id: backendBooking.id,
@@ -84,7 +96,7 @@ const transformBookingData = (backendBooking) => {
     start: startDateTime,
     end: endDateTime,
     status: backendBooking.status || 'pending',
-    balance: backendBooking.calculatedPrice || 0,
+    balance: resolvedBalance,
     totalValue: backendBooking.calculatedPrice || 0,
     guests: backendBooking.guestCount || 0,
     purpose: backendBooking.eventType || 'Event',
