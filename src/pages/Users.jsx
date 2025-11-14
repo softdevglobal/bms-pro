@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Filter, Users as UsersIcon, Plus, Mail, Lock, Building2, MapPin, User, Shield, Home } from 'lucide-react';
+import { Search, Filter, Users as UsersIcon, Plus, Mail, Lock, Building2, MapPin, User, Shield, Home, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProfilePictureUpload from '@/components/ui/ProfilePictureUpload';
 import ProfilePicture from '@/components/ui/ProfilePicture';
@@ -118,12 +118,24 @@ export default function Users() {
   };
 
   const handleDeleteUser = (user) => {
+    // Prevent deleting super admins from the UI
+    if (user?.role === 'super_admin') {
+      setError('Super admins cannot be deleted');
+      return;
+    }
     setUserToDelete(user);
     setShowDeleteModal(true);
   };
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return;
+    // Double-check guard
+    if (userToDelete.role === 'super_admin') {
+      setError('Super admins cannot be deleted');
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      return;
+    }
 
     try {
       const response = await fetch(`/api/users/${userToDelete.id}`, {
@@ -336,6 +348,8 @@ export default function Users() {
   };
 
   const uniqueRoles = [...new Set(users.map(u => u.role).filter(Boolean))];
+  const hallOwners = filtered.filter(u => u.role === 'hall_owner');
+  const superAdmins = filtered.filter(u => u.role === 'super_admin');
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -482,9 +496,20 @@ export default function Users() {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
+      {/* Hall Owners Table */}
       <Card>
         <CardContent className="p-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-md bg-blue-50 text-blue-600">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div className="font-semibold text-gray-900">Hall Owners</div>
+            </div>
+            <div className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+              {hallOwners.length} total
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -501,17 +526,17 @@ export default function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {hallOwners.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <UsersIcon className="h-8 w-8 text-muted-foreground" />
-                      <p className="text-muted-foreground">No users found.</p>
+                      <p className="text-muted-foreground">No hall owners found.</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map(user => (
+                hallOwners.map(user => (
                   <TableRow key={user.id} className="hover:bg-muted/50">
                     <TableCell>
                       <input type="checkbox" className="rounded" />
@@ -599,6 +624,74 @@ export default function Users() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Super Admins Table (separate and more creative) */}
+      {superAdmins.length > 0 && (
+        <Card className="border-purple-200 shadow-sm">
+          <CardContent className="p-0">
+            <div className="px-4 py-4 bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-t-md flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-white/20 rounded-md">
+                  <Crown className="h-4 w-4" />
+                </div>
+                <div className="font-semibold">Super Admins</div>
+              </div>
+              <div className="text-xs px-2 py-1 rounded-full bg-white/20">
+                {superAdmins.length} privileged
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <input type="checkbox" className="rounded" />
+                  </TableHead>
+                  <TableHead>Profile</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {superAdmins.map(user => (
+                  <TableRow key={user.id} className="hover:bg-purple-50/60">
+                    <TableCell>
+                      <input type="checkbox" className="rounded" />
+                    </TableCell>
+                    <TableCell>
+                      <ProfilePicture 
+                        profilePicture={user.profilePicture}
+                        name={user.hallName || user.email}
+                        size="sm"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{user.email || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50">
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0"
+                          onClick={() => handleEditUser(user)}
+                        >
+                          <span className="sr-only">Edit</span>
+                          ✏️
+                        </Button>
+                        {/* No delete for super admins */}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add User Modal */}
       <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
@@ -1243,8 +1336,9 @@ export default function Users() {
               variant="destructive"
               onClick={confirmDeleteUser}
               className="flex-1 sm:flex-none sm:px-4 h-8 text-sm bg-red-600 hover:bg-red-700"
+              disabled={userToDelete?.role === 'super_admin'}
             >
-              Delete User
+              {userToDelete?.role === 'super_admin' ? 'Not Allowed' : 'Delete User'}
             </Button>
           </div>
         </DialogContent>
