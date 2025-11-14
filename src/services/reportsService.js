@@ -48,55 +48,61 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
+// Helper to append optional hallOwnerId
+const withHallOwner = (path, hallOwnerId) => {
+  if (!hallOwnerId) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}hallOwnerId=${encodeURIComponent(hallOwnerId)}`;
+};
+
 // Reports API service
 export const reportsService = {
   // Get executive KPIs
-  getExecutiveKPIs: async (period = '90d') => {
-    return apiCall(`/reports/executive-kpis?period=${period}`);
+  getExecutiveKPIs: async (period = '90d', hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/executive-kpis?period=${period}`, hallOwnerId));
   },
 
   // Get historical performance data
-  getHistoricalData: async (months = 6) => {
-    return apiCall(`/reports/historical-data?months=${months}`);
+  getHistoricalData: async (months = 6, hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/historical-data?months=${months}`, hallOwnerId));
   },
 
   // Get pipeline data (upcoming bookings)
-  getPipelineData: async (months = 6) => {
-    return apiCall(`/reports/pipeline-data?months=${months}`);
+  getPipelineData: async (months = 6, hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/pipeline-data?months=${months}`, hallOwnerId));
   },
 
   // Get booking funnel data
-  getFunnelData: async (period = '90d') => {
-    return apiCall(`/reports/funnel-data?period=${period}`);
+  getFunnelData: async (period = '90d', hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/funnel-data?period=${period}`, hallOwnerId));
   },
 
   // Get payment analysis data
-  getPaymentAnalysis: async () => {
-    return apiCall('/reports/payment-analysis');
+  getPaymentAnalysis: async (hallOwnerId) => {
+    return apiCall(withHallOwner('/reports/payment-analysis', hallOwnerId));
   },
 
   // Get resource utilisation data
-  getResourceUtilisation: async () => {
-    return apiCall('/reports/resource-utilisation');
+  getResourceUtilisation: async (hallOwnerId) => {
+    return apiCall(withHallOwner('/reports/resource-utilisation', hallOwnerId));
   },
 
   // Get cancellation reasons analysis
-  getCancellationReasons: async (period = '90d') => {
-    return apiCall(`/reports/cancellation-reasons?period=${period}`);
+  getCancellationReasons: async (period = '90d', hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/cancellation-reasons?period=${period}`, hallOwnerId));
   },
 
   // Get forecast data
-  getForecastData: async (periods = 6) => {
-    return apiCall(`/reports/forecast?periods=${periods}`);
+  getForecastData: async (periods = 6, hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/forecast?periods=${periods}`, hallOwnerId));
   },
 
   // Get comprehensive summary
-  getSummary: async (period = '90d') => {
-    return apiCall(`/reports/summary?period=${period}`);
+  getSummary: async (period = '90d', hallOwnerId) => {
+    return apiCall(withHallOwner(`/reports/summary?period=${period}`, hallOwnerId));
   },
 
   // Get all reports data at once
-  getAllReportsData: async (period = '90d', months = 6) => {
+  getAllReportsData: async (period = '90d', months = 6, hallOwnerId) => {
     try {
       const [
         executiveKPIs,
@@ -109,15 +115,15 @@ export const reportsService = {
         forecastData,
         summary
       ] = await Promise.all([
-        reportsService.getExecutiveKPIs(period),
-        reportsService.getHistoricalData(months),
-        reportsService.getPipelineData(months),
-        reportsService.getFunnelData(period),
-        reportsService.getPaymentAnalysis(),
-        reportsService.getResourceUtilisation(),
-        reportsService.getCancellationReasons(period),
-        reportsService.getForecastData(6),
-        reportsService.getSummary(period)
+        reportsService.getExecutiveKPIs(period, hallOwnerId),
+        reportsService.getHistoricalData(months, hallOwnerId),
+        reportsService.getPipelineData(months, hallOwnerId),
+        reportsService.getFunnelData(period, hallOwnerId),
+        reportsService.getPaymentAnalysis(hallOwnerId),
+        reportsService.getResourceUtilisation(hallOwnerId),
+        reportsService.getCancellationReasons(period, hallOwnerId),
+        reportsService.getForecastData(6, hallOwnerId),
+        reportsService.getSummary(period, hallOwnerId)
       ]);
 
       return {

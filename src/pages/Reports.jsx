@@ -52,6 +52,8 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, Area, AreaChart } from 'recharts';
 import { format, subDays, addDays, addMonths } from 'date-fns';
 import { reportsService } from '@/services/reportsService';
+import { useAuth } from '@/contexts/AuthContext';
+import { getDataUserId } from '@/services/userService';
 
 // --- Data State Management ---
 
@@ -585,6 +587,7 @@ const CohortGrid = ({ cohorts }) => {
 
 // Main component
 export default function Reports() {
+  const { user, parentUserData, loading: authLoading } = useAuth();
   const [dateRange, setDateRange] = useState('Last 90 days');
   const [selectedResources, setSelectedResources] = useState(['All']);
   const [selectedSegments, setSelectedSegments] = useState(['All']);
@@ -620,12 +623,20 @@ export default function Reports() {
       setLoading(true);
       setError(null);
       
+      // Wait for auth context to be ready
+      if (authLoading) {
+        return;
+      }
+
       const period = dateRange === 'Last 30 days' ? '30d' : 
                     dateRange === 'Last 90 days' ? '90d' : 
                     dateRange === 'Last 180 days' ? '180d' : '1y';
       
-      console.log('📊 Fetching data for period:', period);
-      const data = await reportsService.getAllReportsData(period, 6);
+      // Determine correct hall owner id for data (super_admin must pass explicit hallOwnerId)
+      const hallOwnerId = getDataUserId(user, parentUserData);
+      
+      console.log('📊 Fetching data for period:', period, 'hallOwnerId:', hallOwnerId);
+      const data = await reportsService.getAllReportsData(period, 6, hallOwnerId);
       console.log('📈 Received reports data:', data);
       
       setReportsData(data);
@@ -642,7 +653,7 @@ export default function Reports() {
   // Load data on component mount and when date range changes
   useEffect(() => {
     fetchReportsData();
-  }, [dateRange]);
+  }, [dateRange, authLoading, user?.id, parentUserData?.id]);
   
   // Export functions
   const exportPDF = async () => {
