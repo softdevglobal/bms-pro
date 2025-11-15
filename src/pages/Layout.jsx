@@ -520,6 +520,18 @@ export default function Layout({ children, currentPageName }) {
                   {user?.role === 'sub_user' && parentUserData?.hallName && (
                     <p className="text-sm text-gray-500 mt-1">{parentUserData.hallName}</p>
                   )}
+                  {/* Moved Sign Out button to top section under branding */}
+                  {user && (
+                    <div className="mt-3">
+                      <button
+                        onClick={handleLogout}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition-all duration-200 font-medium border border-red-200 hover:border-red-300"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button
                   className="md:hidden p-2 rounded-md hover:bg-gray-100"
@@ -610,13 +622,6 @@ export default function Layout({ children, currentPageName }) {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 font-medium border border-red-200 hover:border-red-300 hover:shadow-sm"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
               </div>
             )}
           </aside>
