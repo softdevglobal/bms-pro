@@ -3,6 +3,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 
+const API_BASE_URL = '/api';
+
+// Generic fetch with dev/prod fallback (helps when proxying /api is misconfigured)
+const fetchWithFallback = async (path, options = {}) => {
+  // Try relative /api first (works when app is reverse-proxied)
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, options);
+    if (res.ok) return res;
+    // For 404/502 etc., attempt dev fallback to localhost:5000
+    // Only fallback on server/network errors or 404 (route not found behind proxy)
+    if ([404, 502, 503, 504].includes(res.status)) {
+      // Best-effort second try against local backend port
+      try {
+        const alt = await fetch(`http://localhost:5000${path}`, options);
+        return alt.ok ? alt : res;
+      } catch (_) {
+        return res;
+      }
+    }
+    return res;
+  } catch (_) {
+    // Network/connection issue → try localhost fallback
+    try {
+      return await fetch(`http://localhost:5000${path}`, options);
+    } catch (err) {
+      throw err;
+    }
+  }
+};
+
 export const getUserContext = () => {
   // This will be used by other services to get the current user context
   // and determine if they should filter data by parent user
@@ -62,7 +92,7 @@ export const getUserDisplayName = (user) => {
 // Fetch hall owner's event types (handles sub-users)
 export const fetchEventTypes = async (token) => {
   try {
-    const response = await fetch('/api/users/event-types', {
+    const response = await fetchWithFallback('/users/event-types', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -84,7 +114,7 @@ export const fetchEventTypes = async (token) => {
 // Update hall owner's event types (handles sub-users)
 export const updateEventTypes = async (eventTypes, token) => {
   try {
-    const response = await fetch('/api/users/event-types', {
+    const response = await fetchWithFallback('/users/event-types', {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
