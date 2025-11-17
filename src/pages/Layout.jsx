@@ -62,6 +62,11 @@ const navigationItems = [
   icon: Receipt
 },
 {
+  title: "Events",
+  url: createPageUrl("Events"),
+  icon: Calendar
+},
+{
   title: "Resources",
   url: createPageUrl("Resources"),
   icon: Building2

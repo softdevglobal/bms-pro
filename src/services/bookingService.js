@@ -213,6 +213,31 @@ export const fetchResources = async (token) => {
   }
 };
 
+// Update event types for a specific hall resource
+export const updateResourceEventTypes = async (resourceId, eventTypes, token) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/resources/${resourceId}/event-types`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ eventTypes })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(`Failed to update event types: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error updating resource event types:', error);
+    throw error;
+  }
+};
+
 // Transform booking data to customer analytics format
 export const transformBookingsToCustomers = (bookings) => {
   const customerMap = new Map();

@@ -59,6 +59,51 @@ export const getUserDisplayName = (user) => {
   return 'User';
 };
 
+// Fetch hall owner's event types (handles sub-users)
+export const fetchEventTypes = async (token) => {
+  try {
+    const response = await fetch('/api/users/event-types', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(`Failed to fetch event types: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data.eventTypes) ? data.eventTypes : [];
+  } catch (error) {
+    console.error('Error fetching event types:', error);
+    throw error;
+  }
+};
+
+// Update hall owner's event types (handles sub-users)
+export const updateEventTypes = async (eventTypes, token) => {
+  try {
+    const response = await fetch('/api/users/event-types', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ eventTypes })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(`Failed to update event types: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data.eventTypes) ? data.eventTypes : [];
+  } catch (error) {
+    console.error('Error updating event types:', error);
+    throw error;
+  }
+};
+
 // Change user password using Firebase Client SDK
 export const changePassword = async (currentPassword, newPassword) => {
   try {

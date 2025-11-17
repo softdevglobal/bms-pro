@@ -21,6 +21,7 @@ import BookingsCancelled from "./BookingsCancelled";
 import Invoices from "./Invoices";
 import Deposits from "./Deposits";
 import Quotations from "./Quotations";
+import Events from "./Events";
 import Login from "./Login";
 import ForgotPassword from "./ForgotPassword";
 import ResetPassword from "./ResetPassword";
@@ -100,6 +101,8 @@ const PAGES = {
     Deposits: Deposits,
     
     Quotations: Quotations,
+    
+    Events: Events,
     
     Resources: Resources,
     
@@ -182,6 +185,14 @@ function PagesContent() {
                 <ProtectedRoute>
                     <Layout currentPageName={currentPage}>
                         <Welcome />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+            
+            <Route path="/Events" element={
+                <ProtectedRoute requiredPermission={true}>
+                    <Layout currentPageName={currentPage}>
+                        <Events />
                     </Layout>
                 </ProtectedRoute>
             } />
