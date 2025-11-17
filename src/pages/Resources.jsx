@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { uploadResourceImage, deleteResourceImage } from '@/services/resourceService';
 
 export default function Resources() {
   const { user, isHallOwner, loading: authLoading } = useAuth();
@@ -45,6 +46,8 @@ export default function Resources() {
     type: 'hall',
     capacity: 0
   });
+  const [newImageFile, setNewImageFile] = useState(null);
+  const [editImageFile, setEditImageFile] = useState(null);
 
   // Fetch resources on component mount
   useEffect(() => {
@@ -140,17 +143,33 @@ export default function Resources() {
       });
 
       if (response.ok) {
+        const responseData = await response.json().catch(() => ({}));
         setSuccessMessage(editingResource ? 'Resource updated successfully!' : 'Resource created successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
-        
+
+        // If an image was selected, upload it now
+        try {
+          if (!editingResource && newImageFile && responseData?.id) {
+            await uploadResourceImage(responseData.id, newImageFile, token);
+          }
+          if (editingResource && editImageFile) {
+            await uploadResourceImage(editingResource.id, editImageFile, token);
+          }
+        } catch (imgErr) {
+          console.warn('Resource image upload failed:', imgErr?.message);
+          setError(prev => prev || 'Image upload failed');
+        }
+
         // Refresh resources list
-        await fetchResources();
+        await fetchResources(true);
         
         // Close modal and reset
         setShowAddModal(false);
         setShowEditModal(false);
         setEditingResource(null);
         setNewResource({ name: '', type: 'hall', capacity: 0 });
+        setNewImageFile(null);
+        setEditImageFile(null);
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to save resource');
@@ -570,6 +589,16 @@ export default function Resources() {
                           {resource.capacity} people
                         </span>
                       </div>
+
+                      {resource.imageUrl && (
+                        <div className="mt-3">
+                          <img
+                            src={resource.imageUrl}
+                            alt={`${resource.name} image`}
+                            className="w-full h-40 object-cover rounded-md border border-gray-100"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Card Footer */}
@@ -641,6 +670,19 @@ export default function Resources() {
                 required
               />
             </div>
+
+            <div>
+              <Label htmlFor="new-image">Image (optional)</Label>
+              <Input
+                id="new-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewImageFile(e.target.files?.[0] || null)}
+              />
+              {newImageFile && (
+                <p className="text-xs text-gray-500 mt-1">Selected: {newImageFile.name}</p>
+              )}
+            </div>
             
             <div className="flex justify-end gap-2 pt-4">
               <Button 
@@ -706,6 +748,56 @@ export default function Resources() {
                   placeholder="Enter capacity"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Image</Label>
+                {editingResource.imageUrl ? (
+                  <div className="space-y-2">
+                    <img
+                      src={editingResource.imageUrl}
+                      alt="Resource"
+                      className="w-full h-40 object-cover rounded-md border border-gray-100"
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditImageFile(e.target.files?.[0] || null)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token');
+                            await deleteResourceImage(editingResource.id, token);
+                            await fetchResources(true);
+                            setEditingResource(prev => prev ? ({ ...prev, imageUrl: null }) : prev);
+                          } catch (err) {
+                            setError('Failed to delete image');
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    {editImageFile && (
+                      <p className="text-xs text-gray-500">Selected: {editImageFile.name}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setEditImageFile(e.target.files?.[0] || null)}
+                    />
+                    {editImageFile && (
+                      <p className="text-xs text-gray-500 mt-1">Selected: {editImageFile.name}</p>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="bg-gray-50 p-3 rounded-md">
