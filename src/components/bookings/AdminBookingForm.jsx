@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,10 @@ export default function AdminBookingForm({
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [pricingData, setPricingData] = useState([]);
   const [calculatedPriceInfo, setCalculatedPriceInfo] = useState(null);
+  // Resource multiselect UI state
+  const [resourceOpen, setResourceOpen] = useState(false);
+  const [resourceQuery, setResourceQuery] = useState('');
+  const resourceRef = useRef(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -66,6 +70,7 @@ export default function AdminBookingForm({
     customerPhone: '',
     eventType: '',
     selectedHall: '',
+    selectedHalls: [],
     bookingDate: '',
     startTime: '',
     endTime: '',
@@ -137,6 +142,9 @@ export default function AdminBookingForm({
           customerPhone: initialData.customerPhone || '',
           eventType: initialData.eventType || '',
           selectedHall: initialData.selectedHall || '',
+          selectedHalls: Array.isArray(initialData.selectedHalls) && initialData.selectedHalls.length > 0
+            ? initialData.selectedHalls
+            : (initialData.selectedHall ? [initialData.selectedHall] : []),
           bookingDate: initialData.bookingDate || '',
           startTime: initialData.startTime || '',
           endTime: initialData.endTime || '',
@@ -153,6 +161,7 @@ export default function AdminBookingForm({
           customerPhone: '',
           eventType: '',
           selectedHall: '',
+          selectedHalls: [],
           bookingDate: '',
           startTime: '',
           endTime: '',
@@ -189,9 +198,33 @@ export default function AdminBookingForm({
     }));
     
     // Check for conflicts when date, time, or hall changes
-    if (['bookingDate', 'startTime', 'endTime', 'selectedHall'].includes(field)) {
+    if (['bookingDate', 'startTime', 'endTime', 'selectedHall', 'selectedHalls'].includes(field)) {
+      // Keep selectedHalls in sync when primary hall changes
+      if (field === 'selectedHall') {
+        setFormData(prev => {
+          const nextList = prev.selectedHalls && prev.selectedHalls.length > 0
+            ? (prev.selectedHalls.includes(value) ? prev.selectedHalls : [value, ...prev.selectedHalls])
+            : (value ? [value] : []);
+          return { ...prev, selectedHalls: nextList };
+        });
+      }
       checkForConflicts();
     }
+  };
+
+  const toggleAdditionalResource = (resId) => {
+    setFormData(prev => {
+      const exists = prev.selectedHalls.includes(resId);
+      const next = exists ? prev.selectedHalls.filter(id => id !== resId) : [...prev.selectedHalls, resId];
+      // Ensure primary selectedHall remains part of the list
+      const normalized = prev.selectedHall ? (next.includes(prev.selectedHall) ? next : [prev.selectedHall, ...next]) : next;
+      return {
+        ...prev,
+        selectedHalls: normalized,
+        selectedHall: normalized[0] || ''
+      };
+    });
+    checkForConflicts();
   };
 
   // Check for booking conflicts
@@ -208,7 +241,7 @@ export default function AdminBookingForm({
   };
 
   const checkForConflicts = async () => {
-    if (!formData.bookingDate || !formData.startTime || !formData.endTime || !formData.selectedHall) {
+    if (!formData.bookingDate || !formData.startTime || !formData.endTime || (formData.selectedHalls || []).length === 0) {
       setConflicts([]);
       return;
     }
@@ -228,10 +261,13 @@ export default function AdminBookingForm({
         // Skip if it's the same booking (for edit mode)
         if (initialData && booking.id === initialData.id) return false;
         
-        // Check if same date and hall
-        if (booking.bookingDate !== formData.bookingDate || booking.selectedHall !== formData.selectedHall) {
-          return false;
-        }
+        // Check if same date and any selected resource intersects
+        if (booking.bookingDate !== formData.bookingDate) return false;
+        const bookingResources = (booking.selectedHalls && booking.selectedHalls.length > 0)
+          ? booking.selectedHalls
+          : (booking.selectedHall ? [booking.selectedHall] : []);
+        const intersects = bookingResources.some(r => formData.selectedHalls.includes(r));
+        if (!intersects) return false;
         
         // Check if status is active (pending or confirmed)
         if (!['pending', 'confirmed', 'PENDING', 'CONFIRMED'].includes(booking.status)) {
@@ -259,6 +295,7 @@ export default function AdminBookingForm({
       'customerEmail', 
       'customerPhone',
       'eventType',
+      // at least one resource required; selectedHall maintained from first selection
       'selectedHall',
       'bookingDate',
       'startTime',
@@ -312,6 +349,12 @@ export default function AdminBookingForm({
       return false;
     }
 
+    // Validate at least one resource chosen
+    if (!formData.selectedHalls || formData.selectedHalls.length === 0) {
+      setError('Please select at least one resource');
+      return false;
+    }
+
     // Check for conflicts
     if (conflicts.length > 0) {
       setError(`Time slot conflicts with existing booking(s). Please choose a different time.`);
@@ -320,6 +363,34 @@ export default function AdminBookingForm({
 
     return true;
   };
+
+  // Fancy resource dropdown helpers (search + outside click to close)
+  const filteredResources = useMemo(() => {
+    const q = resourceQuery.trim().toLowerCase();
+    if (!q) return resources;
+    return resources.filter(r =>
+      (r.name || '').toLowerCase().includes(q) ||
+      (r.type || '').toLowerCase().includes(q) ||
+      (r.code || '').toLowerCase().includes(q)
+    );
+  }, [resources, resourceQuery]);
+
+  useEffect(() => {
+    function onClick(e) {
+      if (resourceOpen && resourceRef.current && !resourceRef.current.contains(e.target)) {
+        setResourceOpen(false);
+      }
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setResourceOpen(false);
+    }
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [resourceOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -340,6 +411,7 @@ export default function AdminBookingForm({
       // Prepare booking data
       const bookingData = {
         ...formData,
+        selectedHalls: formData.selectedHalls,
         estimatedPrice: formData.estimatedPrice ? parseFloat(formData.estimatedPrice) : null,
         guestCount: formData.guestCount ? parseInt(formData.guestCount) : null
       };
@@ -492,20 +564,90 @@ export default function AdminBookingForm({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="selectedHall">Hall/Resource *</Label>
-                  <Select value={formData.selectedHall} onValueChange={(value) => handleInputChange('selectedHall', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select hall" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {resources.map((resource) => (
-                        <SelectItem key={resource.id} value={resource.id}>
-                          {resource.name} ({resource.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2" ref={resourceRef}>
+                  <Label>Halls/Resources *</Label>
+                  <button
+                    type="button"
+                    onClick={() => setResourceOpen(v => !v)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-left hover:border-gray-400 transition-colors"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      {formData.selectedHalls.length === 0 && (
+                        <span className="text-sm text-gray-500">Select one or more resources</span>
+                      )}
+                      {formData.selectedHalls.map((rid) => {
+                        const r = resources.find(x => x.id === rid);
+                        return (
+                          <span key={rid} className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-800 border border-blue-200 rounded-full px-2 py-1">
+                            <span className="font-medium">{r?.name || rid}</span>
+                            <button
+                              type="button"
+                              className="ml-1 text-blue-700 hover:text-blue-900"
+                              onClick={(e) => { e.stopPropagation(); toggleAdditionalResource(rid); }}
+                              aria-label="Remove"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </button>
+                  {resourceOpen && (
+                    <div className="relative">
+                      <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                        <div className="p-2 border-b border-gray-200 bg-gray-50">
+                          <Input
+                            value={resourceQuery}
+                            onChange={(e) => setResourceQuery(e.target.value)}
+                            placeholder="Search resources..."
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="max-h-64 overflow-auto">
+                          {filteredResources.length === 0 && (
+                            <div className="px-4 py-3 text-sm text-gray-500">No matches</div>
+                          )}
+                          <ul className="divide-y divide-gray-100">
+                            {filteredResources.map((r) => (
+                              <li key={r.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleAdditionalResource(r.id)}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-shrink-0 w-5 h-5 border rounded-sm flex items-center justify-center">
+                                      {formData.selectedHalls.includes(r.id) && (
+                                        <span className="w-3 h-3 bg-blue-600 inline-block rounded-sm" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium text-[#181411] truncate">{r.name}</div>
+                                      <div className="text-xs text-gray-600 flex gap-3 mt-0.5">
+                                        <span className="capitalize">{r.type}</span>
+                                        {typeof r.capacity === 'number' && <span>{r.capacity} ppl</span>}
+                                        {r.code && <span className="font-mono">#{r.code}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="p-2 border-t border-gray-200 bg-gray-50 text-right">
+                          <Button type="button" variant="secondary" onClick={() => setResourceOpen(false)}>
+                            Done
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Keep primary selectedHall in sync with first selected */}
+                  {formData.selectedHalls.length > 0 && formData.selectedHall !== formData.selectedHalls[0] && (
+                    <input type="hidden" value={formData.selectedHalls[0]} readOnly />
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -592,31 +734,43 @@ export default function AdminBookingForm({
                   </p>
                   
                   {/* Price Preview */}
-                  {formData.selectedHall && formData.startTime && formData.endTime && formData.bookingDate && (
+                  {formData.selectedHalls.length > 0 && formData.startTime && formData.endTime && formData.bookingDate && (
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center gap-2 text-blue-800">
                         <Calculator className="h-4 w-4" />
-                        <span className="text-sm font-medium">Auto-Generated Price</span>
+                        <span className="text-sm font-medium">Auto-Generated Price (by resource)</span>
                       </div>
-                      {calculatedPriceInfo ? (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-lg font-bold text-blue-900">
-                            ${calculatedPriceInfo.calculatedPrice.toFixed(2)}
-                          </p>
-                          <div className="text-xs text-blue-700 space-y-0.5">
-                            <p>Duration: {calculatedPriceInfo.durationHours.toFixed(1)} hours</p>
-                            <p>Rate: ${calculatedPriceInfo.rate.toFixed(2)}/{calculatedPriceInfo.rateType}</p>
-                            <p>{calculatedPriceInfo.isWeekend ? 'Weekend' : 'Weekday'} pricing applied</p>
+                      <div className="mt-2 space-y-2">
+                        {formData.selectedHalls.map((rid) => {
+                          const pricing = getPricingForResource(pricingData, rid);
+                          if (!pricing) return (
+                            <div key={rid} className="text-xs text-blue-700">
+                              {resources.find(r => r.id === rid)?.name || rid}: No pricing configured
+                            </div>
+                          );
+                          const info = calculatePrice(pricing, formData.bookingDate, formData.startTime, formData.endTime);
+                          return (
+                            <div key={rid} className="flex justify-between items-center text-sm">
+                              <span className="text-blue-800">{resources.find(r => r.id === rid)?.name || rid}</span>
+                              <span className="font-semibold text-blue-900">${(info?.calculatedPrice || 0).toFixed(2)}</span>
+                            </div>
+                          );
+                        })}
+                        {formData.selectedHalls.length > 1 && (
+                          <div className="border-t border-blue-300 pt-2 mt-2 flex justify-between items-center font-semibold text-blue-900">
+                            <span>Total Estimated:</span>
+                            <span>
+                              ${
+                                formData.selectedHalls.reduce((sum, rid) => {
+                                  const pricing = getPricingForResource(pricingData, rid);
+                                  const info = pricing ? calculatePrice(pricing, formData.bookingDate, formData.startTime, formData.endTime) : null;
+                                  return sum + (info?.calculatedPrice || 0);
+                                }, 0).toFixed(2)
+                              }
+                            </span>
                           </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-blue-600 mt-1">
-                          Duration: {calculateDuration().toFixed(1)} hours. 
-                          {pricingData.length === 0 
-                            ? 'Loading pricing data...' 
-                            : 'No pricing configured for this hall.'}
-                        </p>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

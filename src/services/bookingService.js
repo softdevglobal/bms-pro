@@ -14,6 +14,8 @@ export const transformBookingToCalendarEvent = (backendBooking) => {
     resource: backendBooking.hallName || backendBooking.selectedHall,
     resourceId: backendBooking.selectedHall || backendBooking.resourceId,
     resourceName: backendBooking.hallName || backendBooking.resourceName,
+    selectedHalls: backendBooking.selectedHalls || (backendBooking.selectedHall ? [backendBooking.selectedHall] : []),
+    hallNames: backendBooking.hallNames || (backendBooking.hallName ? [backendBooking.hallName] : []),
     hallName: backendBooking.hallName,
     selectedHall: backendBooking.selectedHall,
     start: startDateTime,
