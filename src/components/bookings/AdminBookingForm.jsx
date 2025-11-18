@@ -39,7 +39,7 @@ import {
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { createAdminBooking, fetchResources, fetchBookingsForCalendar, updateBooking } from "@/services/bookingService";
-import { getDataUserId } from "@/services/userService";
+import { getDataUserId, fetchEventTypes as fetchHallOwnerEventTypes } from "@/services/userService";
 import { fetchPricing, getPricingForResource, calculatePrice } from "@/services/pricingService";
 
 export default function AdminBookingForm({ 
@@ -58,6 +58,7 @@ export default function AdminBookingForm({
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [pricingData, setPricingData] = useState([]);
   const [calculatedPriceInfo, setCalculatedPriceInfo] = useState(null);
+  const [eventTypes, setEventTypes] = useState([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -75,8 +76,8 @@ export default function AdminBookingForm({
     status: 'pending'
   });
 
-  // Event types options
-  const eventTypes = [
+  // Fallback event types if none configured for the hall owner
+  const DEFAULT_EVENT_TYPES = [
     'Wedding',
     'Birthday Party',
     'Corporate Event',
@@ -115,6 +116,19 @@ export default function AdminBookingForm({
             setPricingData(pricing);
           } catch (pricingErr) {
             console.error('Error fetching pricing:', pricingErr);
+          }
+
+          // Fetch hall owner's event types from backend
+          try {
+            const types = await fetchHallOwnerEventTypes(token);
+            if (Array.isArray(types) && types.length > 0) {
+              setEventTypes(types);
+            } else {
+              setEventTypes(DEFAULT_EVENT_TYPES);
+            }
+          } catch (etErr) {
+            console.error('Error fetching event types:', etErr);
+            setEventTypes(DEFAULT_EVENT_TYPES);
           }
         }
       } catch (err) {
@@ -484,7 +498,7 @@ export default function AdminBookingForm({
                       <SelectValue placeholder="Select event type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {eventTypes.map((type) => (
+                      {(eventTypes.length > 0 ? eventTypes : DEFAULT_EVENT_TYPES).map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>
